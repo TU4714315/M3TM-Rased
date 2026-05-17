@@ -14,6 +14,13 @@
       --blue2: #9bd0ff;
       --panel: rgba(5, 14, 28, 0.62);
       --border: rgba(120, 180, 255, 0.32);
+      --glass: rgba(10, 20, 40, 0.55);
+      --glass-strong: rgba(6, 14, 28, 0.78);
+      --cyan: #55f3ff;
+      --teal: #29ffd5;
+      --violet: #6b7cff;
+      --grid: rgba(88, 170, 255, 0.08);
+      --scan: rgba(88, 170, 255, 0.06);
       --text: #eef7ff;
       --muted: #a9bdd2;
       --danger: #ff6b6b;
@@ -26,6 +33,12 @@
       --blue2: #60a5fa;
       --panel: rgba(15, 23, 42, 0.75);
       --border: rgba(100, 150, 255, 0.25);
+      --glass: rgba(12, 18, 32, 0.6);
+      --glass-strong: rgba(10, 16, 30, 0.82);
+      --cyan: #55f3ff;
+      --teal: #29ffd5;
+      --grid: rgba(88, 170, 255, 0.07);
+      --scan: rgba(88, 170, 255, 0.06);
       --text: #e2e8f0;
       --muted: #94a3b8;
       --danger: #ef4444;
@@ -77,13 +90,37 @@
 
     body {
       background:
-        linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)),
-        radial-gradient(circle at 50% 38%, rgba(90,150,255,.14), transparent 32%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600'%3E%3Crect fill='%23020408' width='1000' height='600'/%3E%3C/svg%3E");
+        linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.62)),
+        radial-gradient(circle at 58% 42%, rgba(90,160,255,.22), transparent 38%),
+        radial-gradient(circle at 45% 30%, rgba(88,170,255,.16), transparent 45%),
+        url("https://eoimages.gsfc.nasa.gov/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.13500x6750.jpg");
       background-size: cover;
-      background-position: center top;
+      background-position: 50% 35%;
       background-repeat: no-repeat;
       background-attachment: fixed;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, var(--grid) 0, var(--grid) 1px, transparent 1px, transparent 120px),
+        repeating-linear-gradient(180deg, var(--grid) 0, var(--grid) 1px, transparent 1px, transparent 120px),
+        linear-gradient(180deg, rgba(0,0,0,.35), transparent 20%, transparent 80%, rgba(0,0,0,.55));
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(180deg, var(--scan) 0, var(--scan) 1px, transparent 1px, transparent 4px);
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: 1;
     }
 
     #cursorGlow {
@@ -115,8 +152,9 @@
       min-height: 100vh;
       padding: 28px;
       background:
-        linear-gradient(90deg, rgba(0,0,0,.18), transparent 24%, transparent 76%, rgba(0,0,0,.18)),
-        rgba(0,0,0,.05);
+        linear-gradient(90deg, rgba(0,0,0,.24), transparent 22%, transparent 78%, rgba(0,0,0,.24)),
+        rgba(0,0,0,.08);
+      backdrop-filter: blur(8px);
     }
 
     /* ===== LOGIN SCREEN ===== */
@@ -223,6 +261,10 @@
       color: white;
     }
 
+    .btn-primary {
+      box-shadow: 0 10px 24px rgba(25, 110, 216, 0.35), inset 0 0 12px rgba(85, 243, 255, 0.12);
+    }
+
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(74,166,255,.4);
@@ -232,6 +274,11 @@
       background: rgba(88,170,255,.1);
       color: var(--blue2);
       border: 2px solid var(--blue);
+    }
+
+    .btn-secondary {
+      border-color: rgba(85, 243, 255, 0.55);
+      color: var(--cyan);
     }
 
     .btn-danger {
@@ -323,6 +370,7 @@
       margin: 0;
       color: var(--text);
       text-shadow: 0 0 20px rgba(88,170,255,.5);
+      letter-spacing: 2px;
     }
 
     .nav {
@@ -335,7 +383,7 @@
 
     .nav button {
       border: 1px solid rgba(120,180,255,.34);
-      background: rgba(8, 20, 40, .72);
+      background: rgba(8, 18, 38, .64);
       color: var(--text);
       border-radius: 12px;
       padding: 12px 16px;
@@ -344,6 +392,17 @@
       backdrop-filter: blur(8px);
       box-shadow: 0 12px 28px rgba(0,0,0,.38);
       transition: all .3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav button::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      border: 1px solid rgba(85, 243, 255, 0.18);
+      pointer-events: none;
     }
 
     .nav button.active,
@@ -357,11 +416,32 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 24px;
-      background: var(--panel);
-      border: 1px solid var(--border);
+      background: linear-gradient(160deg, rgba(10,20,40,.75), rgba(6,12,26,.68));
+      border: 1px solid rgba(120, 180, 255, 0.35);
       border-radius: 18px;
       backdrop-filter: blur(12px);
-      box-shadow: 0 22px 60px rgba(0,0,0,.50);
+      box-shadow: 0 22px 60px rgba(0,0,0,.55), inset 0 0 24px rgba(88,170,255,.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(85,243,255,.08), transparent 35%),
+        linear-gradient(315deg, rgba(41,255,213,.08), transparent 35%);
+      pointer-events: none;
+    }
+
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px dashed rgba(85, 243, 255, 0.18);
+      border-radius: 12px;
+      pointer-events: none;
     }
 
     .panel.active {
@@ -418,16 +498,27 @@
     }
 
     .card {
-      background: rgba(0, 8, 18, .66);
-      border: 1px solid rgba(130,180,255,.24);
+      background: linear-gradient(160deg, rgba(10,18,34,.68), rgba(6,12,24,.62));
+      border: 1px solid rgba(130,180,255,.3);
       border-radius: 16px;
       padding: 18px;
       transition: all .3s;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(85,243,255,.06), transparent 40%);
+      pointer-events: none;
     }
 
     .card:hover {
       border-color: var(--blue);
-      box-shadow: 0 8px 20px rgba(88,170,255,.2);
+      box-shadow: 0 10px 26px rgba(88,170,255,.22);
     }
 
     .card h3 {
@@ -477,11 +568,24 @@
     }
 
     .stat-box {
-      background: rgba(88,170,255,.1);
-      border: 2px solid var(--blue);
+      background: linear-gradient(160deg, rgba(12,24,45,.55), rgba(8,16,32,.5));
+      border: 1px solid rgba(120,180,255,.35);
       border-radius: 14px;
       padding: 20px;
       text-align: center;
+      box-shadow: 0 12px 28px rgba(0,0,0,.4);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-box::after {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 1px solid rgba(85, 243, 255, 0.18);
+      border-radius: 10px;
+      pointer-events: none;
     }
 
     .stat-box .number {
