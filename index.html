@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>M3TM | RASED - نظام الرصد الآمن v3</title>
+  <title>M3TM | RASED - نظام الرصد الآمن</title>
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
     :root {
       --blue: #58aaff;
       --blue2: #9bd0ff;
@@ -16,6 +19,50 @@
       --danger: #ff6b6b;
       --success: #51cf66;
       --warning: #ffd93d;
+    }
+
+    body.dark-mode {
+      --blue: #3b82f6;
+      --blue2: #60a5fa;
+      --panel: rgba(15, 23, 42, 0.75);
+      --border: rgba(100, 150, 255, 0.25);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+
+    body.light-mode {
+      --blue: #3b82f6;
+      --blue2: #1e40af;
+      --panel: rgba(243, 244, 246, 0.9);
+      --border: rgba(59, 130, 246, 0.3);
+      --text: #1f2937;
+      --muted: #6b7280;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+
+    body.light-mode {
+      background: #f3f4f6 !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode .card {
+      background: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    body.light-mode .login-box {
+      background: rgba(243, 244, 246, 0.95) !important;
+      box-shadow: 0 22px 60px rgba(0,0,0,.15) !important;
+    }
+
+    body.light-mode .btn-primary {
+      background: linear-gradient(180deg, #3b82f6, #1e40af) !important;
+    }
+
+    body.light-mode .panel {
+      box-shadow: 0 12px 30px rgba(0,0,0,.1) !important;
     }
 
     html, body {
@@ -29,9 +76,13 @@
     }
 
     body {
-      background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)),
-                  radial-gradient(circle at 50% 38%, rgba(90,150,255,.14), transparent 32%);
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)),
+        radial-gradient(circle at 50% 38%, rgba(90,150,255,.14), transparent 32%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600'%3E%3Crect fill='%23020408' width='1000' height='600'/%3E%3C/svg%3E");
       background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
       background-attachment: fixed;
     }
 
@@ -48,19 +99,38 @@
       opacity: 0;
       filter: blur(12px);
       mix-blend-mode: screen;
-      background: radial-gradient(circle, rgba(95, 170, 255, .24) 0%, transparent 75%);
+      background: radial-gradient(
+        circle,
+        rgba(95, 170, 255, .24) 0%,
+        rgba(95, 170, 255, .12) 28%,
+        rgba(95, 170, 255, .04) 55%,
+        transparent 75%
+      );
       transition: opacity .22s ease;
     }
 
-    .container { position: relative; z-index: 3; min-height: 100vh; padding: 28px; }
+    .container {
+      position: relative;
+      z-index: 3;
+      min-height: 100vh;
+      padding: 28px;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.18), transparent 24%, transparent 76%, rgba(0,0,0,.18)),
+        rgba(0,0,0,.05);
+    }
 
+    /* ===== LOGIN SCREEN ===== */
     .login-screen {
+      display: none;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
     }
-    .login-screen.hidden { display: none; }
+
+    .login-screen.active {
+      display: flex;
+    }
 
     .login-box {
       background: var(--panel);
@@ -73,13 +143,22 @@
       box-shadow: 0 22px 60px rgba(0,0,0,.50);
     }
 
-    .login-box h1 { font-size: 36px; margin: 0 0 10px; color: var(--blue2); }
+    .login-box h1 {
+      font-size: 36px;
+      margin: 0 0 10px;
+      color: var(--blue2);
+    }
+
+    .login-box p {
+      color: var(--muted);
+      margin-bottom: 30px;
+    }
 
     .pin-input {
       display: flex;
       gap: 10px;
       justify-content: center;
-      margin: 20px 0;
+      margin-bottom: 20px;
     }
 
     .pin-digit {
@@ -96,103 +175,139 @@
       transition: all .3s;
     }
 
-    .pin-digit:focus { border-color: var(--blue); box-shadow: 0 0 10px rgba(88,170,255,.5); }
+    .pin-digit:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 10px rgba(88,170,255,.5);
+    }
+
+    .pin-digit::placeholder {
+      color: transparent;
+    }
 
     .btn {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       border: 0;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: bold;
+      border-radius: 11px;
+      font-size: 16px;
+      font-weight: 900;
       cursor: pointer;
-      margin-top: 10px;
       transition: all .3s;
+      margin-top: 10px;
     }
 
-    .btn-primary { background: linear-gradient(180deg, #4aa6ff, #1768d8); color: white; }
-    .btn-secondary { background: rgba(88,170,255,.1); color: var(--blue2); border: 2px solid var(--blue); }
+    .btn-primary {
+      background: linear-gradient(180deg, #4aa6ff, #1768d8);
+      color: white;
+    }
 
-    .error-msg { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(74,166,255,.4);
+    }
 
+    .btn-secondary {
+      background: rgba(88,170,255,.1);
+      color: var(--blue2);
+      border: 2px solid var(--blue);
+    }
+
+    .btn-danger {
+      background: rgba(255,107,107,.1);
+      color: var(--danger);
+      border: 2px solid var(--danger);
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    /* ===== MAIN APP ===== */
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 18px;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .theme-toggle {
+      background: linear-gradient(180deg, rgba(88,170,255,.2), rgba(88,170,255,.1));
+      border: 1px solid var(--border);
+      color: var(--blue2);
+      border-radius: 11px;
+      padding: 10px 16px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all .3s;
+      font-size: 16px;
+    }
+
+    .theme-toggle:hover {
+      background: linear-gradient(180deg, rgba(88,170,255,.3), rgba(88,170,255,.2));
+      transform: translateY(-2px);
     }
 
     .user-info {
       background: var(--panel);
       border: 1px solid var(--border);
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
+      padding: 12px 16px;
+      border-radius: 11px;
+      font-size: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .user-info .role {
+      color: var(--blue2);
+      font-weight: bold;
     }
 
     .logout-btn {
       background: linear-gradient(180deg, #ff6b6b, #d32f2f);
       color: white;
       border: 0;
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-weight: bold;
+      border-radius: 11px;
+      padding: 10px 16px;
+      font-weight: 900;
       cursor: pointer;
-      margin-top: 8px;
-      width: 100%;
-    }
-
-    .title { font-size: 40px; font-weight: 900; margin: 0; color: var(--text); text-shadow: 0 0 20px rgba(88,170,255,.5); }
-
-    .search-bar {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-
-    .search-input {
-      flex: 1;
-      min-width: 200px;
-      padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(0,0,0,.4);
-      color: var(--text);
-      outline: none;
-    }
-
-    .search-input:focus { border-color: var(--blue); }
-
-    .filter-tags {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-
-    .tag {
-      padding: 6px 12px;
-      border-radius: 20px;
-      background: rgba(88,170,255,.1);
-      color: var(--blue2);
-      border: 1px solid var(--blue);
-      cursor: pointer;
-      font-size: 12px;
       transition: all .3s;
     }
 
-    .tag.active {
-      background: linear-gradient(180deg, rgba(73,150,255,.94), rgba(26,95,210,.86));
-      border-color: rgba(255,255,255,.68);
+    .logout-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255,107,107,.4);
+    }
+
+    .hero {
+      text-align: center;
+      padding: 30px 0;
+      margin-bottom: 30px;
+    }
+
+    .title {
+      font-size: clamp(40px, 8vw, 60px);
+      font-weight: 1000;
+      margin: 0;
+      color: var(--text);
+      text-shadow: 0 0 20px rgba(88,170,255,.5);
     }
 
     .nav {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       justify-content: center;
     }
 
@@ -200,15 +315,17 @@
       border: 1px solid rgba(120,180,255,.34);
       background: rgba(8, 20, 40, .72);
       color: var(--text);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-weight: bold;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 900;
       cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.38);
       transition: all .3s;
-      font-size: 13px;
     }
 
-    .nav button.active {
+    .nav button.active,
+    .nav button:hover {
       background: linear-gradient(180deg, rgba(73,150,255,.94), rgba(26,95,210,.86));
       border-color: rgba(255,255,255,.68);
     }
@@ -220,78 +337,104 @@
       padding: 24px;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 18px;
       backdrop-filter: blur(12px);
       box-shadow: 0 22px 60px rgba(0,0,0,.50);
     }
 
-    .panel.active { display: block; }
-    .panel h2 { margin-top: 0; font-size: 22px; color: var(--blue2); }
+    .panel.active {
+      display: block;
+    }
 
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 13px; }
+    .panel h2 {
+      margin-top: 0;
+      font-size: 28px;
+      color: var(--blue2);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: var(--text);
+    }
+
     .form-group input,
     .form-group textarea,
     .form-group select {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 11px;
       background: rgba(0,0,0,.4);
       color: var(--text);
+      font-family: inherit;
       outline: none;
-      font-size: 13px;
+      transition: border .3s;
     }
+
     .form-group input:focus,
-    .form-group textarea:focus { border-color: var(--blue); }
-    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-group textarea:focus,
+    .form-group select:focus {
+      border-color: var(--blue);
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 14px;
-      margin-top: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
     }
 
     .card {
       background: rgba(0, 8, 18, .66);
       border: 1px solid rgba(130,180,255,.24);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 18px;
       transition: all .3s;
     }
 
-    .card h3 { margin: 0 0 8px; font-size: 16px; color: var(--blue2); }
-    .card p { margin: 6px 0; font-size: 13px; }
-
-    .importance-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: bold;
+    .card:hover {
+      border-color: var(--blue);
+      box-shadow: 0 8px 20px rgba(88,170,255,.2);
     }
 
-    .importance-high { background: rgba(255,107,107,.2); color: var(--danger); }
-    .importance-medium { background: rgba(255,217,61,.2); color: var(--warning); }
-    .importance-low { background: rgba(81,207,102,.2); color: var(--success); }
+    .card h3 {
+      margin-top: 0;
+      color: var(--blue2);
+    }
 
     .card-actions {
       display: flex;
-      gap: 6px;
-      margin-top: 8px;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
     }
 
     .card-actions button {
       flex: 1;
-      padding: 6px;
+      padding: 8px;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       background: rgba(88,170,255,.1);
       color: var(--blue2);
       cursor: pointer;
-      font-size: 11px;
       font-weight: bold;
+      transition: all .3s;
+      font-size: 12px;
+    }
+
+    .card-actions button:hover {
+      background: rgba(88,170,255,.2);
     }
 
     .card-actions .delete {
@@ -300,36 +443,66 @@
       border-color: var(--danger);
     }
 
+    .card-actions .delete:hover {
+      background: rgba(255,107,107,.2);
+    }
+
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
     }
 
     .stat-box {
       background: rgba(88,170,255,.1);
       border: 2px solid var(--blue);
-      border-radius: 10px;
-      padding: 16px;
+      border-radius: 14px;
+      padding: 20px;
       text-align: center;
     }
 
-    .stat-box .number { font-size: 28px; font-weight: bold; color: var(--blue2); }
-    .stat-box .label { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .stat-box .number {
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--blue2);
+    }
 
-    .empty-message { text-align: center; color: var(--muted); padding: 30px 20px; }
+    .stat-box .label {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
 
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .empty-message {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+    }
 
     @media (max-width: 768px) {
-      .container { padding: 14px; }
-      .topbar { flex-direction: column; align-items: flex-start; }
-      .panel { padding: 14px; }
-      .grid { grid-template-columns: 1fr; }
-      .title { font-size: 28px; }
-      .form-row { grid-template-columns: 1fr; }
-      .search-bar { flex-direction: column; }
+      .container {
+        padding: 16px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .nav {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 10px;
+      }
+
+      .panel {
+        padding: 16px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -337,467 +510,670 @@
 <body>
   <div id="cursorGlow"></div>
 
-  <!-- LOGIN -->
-  <div class="login-screen" id="loginScreen">
+  <!-- ===== LOGIN SCREEN ===== -->
+  <div class="login-screen active" id="loginScreen">
     <div class="login-box">
       <h1>🔐 M3TM RASED</h1>
-      <p>نظام الرصد الآمن v3</p>
-      <div class="pin-input" id="pinInput"></div>
-      <button class="btn btn-primary" onclick="verifyPin()">دخول</button>
-      <button class="btn btn-secondary" onclick="toggleSetup()">مستخدم جديد</button>
+      <p>نظام الرصد الآمن - أدخل رقم PIN</p>
       
-      <div id="setupPanel" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
-        <p style="font-size:12px; color:var(--muted);">أدخل رقم الإدارة (Admin PIN)</p>
-        <input type="password" id="adminPin" placeholder="123987" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
-        <input type="text" id="newUserPin" placeholder="PIN جديد" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
-        <input type="text" id="newUserName" placeholder="الاسم" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
-        <button class="btn btn-primary" onclick="createUser()" style="background:linear-gradient(180deg, #51cf66, #2f9e44);">إضافة</button>
+      <div class="pin-input" id="pinInput"></div>
+      
+      <button class="btn btn-primary" onclick="verifyPin()">دخول</button>
+      <button class="btn btn-secondary" onclick="toggleAdminSetup()">إعداد رقم سري جديد</button>
+      
+      <div id="adminSetup" style="display: none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+        <p>أدخل رقم السري الرئيسي (Admin PIN) أولاً:</p>
+        <input type="password" id="adminPinInput" placeholder="123987" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text);" />
+        <input type="text" id="newPinInput" placeholder="PIN جديد" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); margin-top: 10px;" />
+        <input type="text" id="newPinName" placeholder="اسم المستخدم" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); margin-top: 10px;" />
+        <button class="btn btn-success" onclick="addNewUser()" style="background: linear-gradient(180deg, #51cf66, #2f9e44); color: white; margin-top: 10px;">إضافة مستخدم</button>
+        <button class="btn btn-secondary" onclick="toggleAdminSetup()" style="margin-top: 10px;">إلغاء</button>
       </div>
 
       <div class="error-msg" id="errorMsg"></div>
     </div>
   </div>
 
-  <!-- APP -->
-  <div class="container hidden" id="mainApp">
+  <!-- ===== MAIN APP ===== -->
+  <div class="container" id="mainApp" style="display: none;">
     <div class="topbar">
       <div>
-        <h1 class="title">📊 M3TM RASED</h1>
+        <h1 class="title">📊 M3TM - RASED</h1>
+        <p style="margin: 5px 0 0; color: var(--muted); font-size: 14px;">واجهة الرصد والأخبار الآمنة</p>
       </div>
-      <div class="user-info">
-        <div><strong id="userName">المستخدم</strong></div>
-        <div id="userRole" style="font-size:12px; color:var(--blue); margin-top:4px;">مشاهد</div>
-        <button class="logout-btn" onclick="logout()">تسجيل خروج</button>
+      <div class="topbar-actions">
+        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل المظهر (Light/Dark)">
+          <span id="themeIcon">🌙</span>
+        </button>
+        <div class="user-info">
+          <span>مرحباً: <strong id="userName">مستخدم</strong></span>
+          <span class="role" id="userRole">مشاهد</span>
+          <button class="logout-btn" onclick="logout()">تسجيل خروج</button>
+        </div>
       </div>
     </div>
 
+    <!-- STATS -->
     <div class="stats">
-      <div class="stat-box"><div class="number" id="newsCount">0</div><div class="label">أخبار</div></div>
-      <div class="stat-box"><div class="number" id="sourcesCount">0</div><div class="label">مصادر</div></div>
-      <div class="stat-box"><div class="number" id="usersCount">0</div><div class="label">مستخدمين</div></div>
+      <div class="stat-box">
+        <div class="number" id="newsCount">0</div>
+        <div class="label">أخبار</div>
+      </div>
+      <div class="stat-box">
+        <div class="number" id="sourcesCount">0</div>
+        <div class="label">مصادر</div>
+      </div>
+      <div class="stat-box">
+        <div class="number" id="usersCount">0</div>
+        <div class="label">مستخدمين</div>
+      </div>
     </div>
 
+    <!-- NAVIGATION -->
     <nav class="nav">
-      <button class="active" onclick="switchPanel('news', this)">📰 أخبار</button>
-      <button onclick="switchPanel('sources', this)">📚 مصادر</button>
-      <button id="adminBtn" style="display:none" onclick="switchPanel('users', this)">👥 مستخدمين</button>
-      <button id="addBtn" style="display:none" onclick="switchPanel('add', this)">➕ إضافة</button>
+      <button class="active" onclick="openPanel('news', this)">📰 الأخبار</button>
+      <button onclick="openPanel('sources', this)">📚 المصادر</button>
+      <button id="adminNav" style="display: none;" onclick="openPanel('users', this)">👥 المستخدمين</button>
+      <button id="addNewsNav" style="display: none;" onclick="openPanel('add', this)">➕ إضافة خبر</button>
+      <button id="addSourceNav" style="display: none;" onclick="toggleSourceForm()">📝 إضافة مصدر</button>
     </nav>
 
-    <!-- NEWS PANEL -->
+    <!-- PANEL: NEWS -->
     <section id="news" class="panel active">
-      <h2>📰 الأخبار</h2>
-      <div class="search-bar">
-        <input type="text" class="search-input" id="newsSearch" placeholder="🔍 ابحث عن خبر..." onkeyup="filterNews()" />
-        <select id="categoryFilter" onchange="filterNews()" style="min-width:140px; padding:10px; border:1px solid var(--border); border-radius:8px; background:rgba(0,0,0,.4); color:var(--text);">
-          <option value="">جميع التصنيفات</option>
-          <option value="الحج">الحج</option>
-          <option value="المدينة">المدينة</option>
-          <option value="باكستان">باكستان</option>
-          <option value="إيران">إيران</option>
-          <option value="أمني">أمني</option>
-          <option value="OSINT">OSINT</option>
-          <option value="عاجل">عاجل</option>
-        </select>
-      </div>
-      <div class="filter-tags">
-        <div class="tag" onclick="filterByImportance('عالي جداً', this)">⚡ عالي جداً</div>
-        <div class="tag" onclick="filterByImportance('مهم', this)">⭐ مهم</div>
-        <div class="tag" onclick="filterByImportance('عادي', this)">📌 عادي</div>
-        <div class="tag" onclick="filterByImportance('', this)">🔄 جميع الأخبار</div>
-      </div>
-      <div id="newsList" class="grid"></div>
-      <div id="newsEmpty" class="empty-message">لا توجد أخبار</div>
-    </section>
-
-    <!-- SOURCES PANEL -->
-    <section id="sources" class="panel">
-      <h2>📚 مكتبة المصادر</h2>
-      <div class="search-bar">
-        <input type="text" class="search-input" id="sourceSearch" placeholder="🔍 ابحث عن مصدر..." onkeyup="filterSources()" />
-      </div>
-      <div id="sourcesList" class="grid"></div>
-      <div id="sourcesEmpty" class="empty-message">لا توجد مصادر</div>
-    </section>
-
-    <!-- ADD NEWS PANEL -->
-    <section id="add" class="panel">
-      <h2>➕ إضافة خبر جديد</h2>
-      <form onsubmit="saveNews(event)">
-        <div class="form-row">
-          <div class="form-group">
-            <label>العنوان *</label>
-            <input type="text" required />
-          </div>
-          <div class="form-group">
-            <label>المصدر *</label>
-            <input type="text" required />
-          </div>
-        </div>
+      <h2>📰 الأخبار والرصد</h2>
+      
+      <!-- Search & Filter -->
+      <div style="background: rgba(88,170,255,.1); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
         <div class="form-group">
-          <label>الرابط</label>
-          <input type="url" />
+          <input type="text" id="newsSearch" placeholder="🔍 ابحث عن خبر..." style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: rgba(0,0,0,.4); color: var(--text);" oninput="filterNews()" />
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>التصنيف</label>
-            <select>
-              <option>الحج</option>
-              <option>المدينة</option>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 13px;">فلتر حسب التصنيف</label>
+            <select id="filterCategory" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); font-size: 13px;" onchange="filterNews()">
+              <option value="">كل التصنيفات</option>
+              <option>عام</option>
+              <option>حج وعمرة</option>
+              <option>المدينة المنورة</option>
               <option>باكستان</option>
               <option>إيران</option>
               <option>أمني</option>
               <option>OSINT</option>
               <option>عاجل</option>
-              <option>عام</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>الأهمية</label>
-            <select>
-              <option>عادي</option>
-              <option>مهم</option>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 13px;">فلتر حسب الأهمية</label>
+            <select id="filterImportance" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); font-size: 13px;" onchange="filterNews()">
+              <option value="">كل الأهمية</option>
               <option>عالي جداً</option>
+              <option>مهم</option>
+              <option>عادي</option>
             </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 13px;">عدد الأخبار</label>
+            <div style="display: flex; gap: 8px; height: 40px; align-items: center;">
+              <span id="filteredCount" style="flex: 1; padding: 10px; background: rgba(88,170,255,.1); border: 1px solid var(--border); border-radius: 8px; text-align: center; font-weight: bold;">0</span>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div id="newsList" class="grid"></div>
+      <div id="newsEmpty" class="empty-message" style="display: none;">لا توجد أخبار حالياً</div>
+    </section>
+
+    <!-- PANEL: SOURCES -->
+    <section id="sources" class="panel">
+      <h2>📚 مكتبة المصادر</h2>
+      
+      <!-- Source Management (Admin Only) -->
+      <div id="sourceAddForm" style="display: none; background: rgba(81,207,102,.1); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; color: var(--success);">➕ إضافة مصدر جديد</h3>
         <div class="form-group">
-          <label>ملاحظات</label>
-          <textarea placeholder="معلومات إضافية..."></textarea>
+          <label>اسم المصدر *</label>
+          <input type="text" id="sourceName" placeholder="مثال: BBC عربي" />
+        </div>
+        <div class="form-group">
+          <label>الرابط *</label>
+          <input type="url" id="sourceUrl" placeholder="https://example.com" />
+        </div>
+        <div class="form-group">
+          <label>الوصف</label>
+          <textarea id="sourceDesc" placeholder="وصف المصدر..." style="min-height: 80px;"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="addSource()" style="margin-top: 10px;">💾 حفظ المصدر</button>
+        <button class="btn btn-secondary" onclick="toggleSourceForm()" style="margin-top: 10px; background: rgba(88,170,255,.1); color: var(--blue2);">إلغاء</button>
+      </div>
+
+      <!-- Search & Filter -->
+      <div style="background: rgba(88,170,255,.1); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <input type="text" id="sourceSearch" placeholder="🔍 ابحث عن مصدر..." style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: rgba(0,0,0,.4); color: var(--text);" oninput="filterSources()" />
+        </div>
+      </div>
+
+      <div id="sourcesList" class="grid"></div>
+      <div id="sourcesEmpty" class="empty-message" style="display: none;">لا توجد مصادر حالياً</div>
+    </section>
+
+    <!-- PANEL: ADD NEWS (Admin Only) -->
+    <section id="add" class="panel">
+      <h2>➕ إضافة خبر جديد</h2>
+      <form onsubmit="addNews(event)">
+        <div class="form-group">
+          <label>العنوان *</label>
+          <input type="text" id="newsTitle" required />
+        </div>
+        <div class="form-group">
+          <label>المصدر *</label>
+          <input type="text" id="newsSource" required />
+        </div>
+        <div class="form-group">
+          <label>الرابط</label>
+          <input type="url" id="newsUrl" />
+        </div>
+        <div class="form-group">
+          <label>التصنيف</label>
+          <select id="newsCategory">
+            <option>عام</option>
+            <option>حج وعمرة</option>
+            <option>المدينة المنورة</option>
+            <option>باكستان</option>
+            <option>إيران</option>
+            <option>أمني</option>
+            <option>OSINT</option>
+            <option>عاجل</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>الأهمية</label>
+          <select id="newsImportance">
+            <option>عادي</option>
+            <option>مهم</option>
+            <option>عالي جداً</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>الملاحظات</label>
+          <textarea id="newsNotes"></textarea>
         </div>
         <button type="submit" class="btn btn-primary">💾 حفظ الخبر</button>
       </form>
     </section>
 
-    <!-- ADD SOURCE PANEL -->
-    <section id="addSource" class="panel" style="display:none;">
-      <h2>📚 إضافة مصدر جديد</h2>
-      <form onsubmit="addSourceForm(event)">
-        <div class="form-group">
-          <label>اسم المصدر *</label>
-          <input type="text" id="sourceName" required />
-        </div>
-        <div class="form-group">
-          <label>رابط الموقع *</label>
-          <input type="url" id="sourceUrl" required />
-        </div>
-        <div class="form-group">
-          <label>الوصف</label>
-          <textarea id="sourceDesc" placeholder="وصف المصدر..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary">💾 إضافة المصدر</button>
-      </form>
-    </section>
-
-    <!-- USERS PANEL -->
+    <!-- PANEL: USERS (Admin Only) -->
     <section id="users" class="panel">
       <h2>👥 إدارة المستخدمين</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label>PIN جديد:</label>
-          <input type="text" id="userPin" />
-        </div>
-        <div class="form-group">
-          <label>الاسم:</label>
-          <input type="text" id="userName2" />
-        </div>
+      <div class="form-group">
+        <label>PIN جديد:</label>
+        <input type="text" id="userPin" placeholder="رقم PIN" />
       </div>
-      <button class="btn btn-primary" onclick="addUserFromPanel()" style="margin-bottom:20px;">➕ إضافة مستخدم</button>
+      <div class="form-group">
+        <label>الاسم:</label>
+        <input type="text" id="userName2" placeholder="اسم المستخدم" />
+      </div>
+      <button class="btn btn-primary" onclick="addUserAdmin()" style="margin-bottom: 20px;">إضافة مستخدم</button>
+      
       <div id="usersList" class="grid"></div>
+      <div id="usersEmpty" class="empty-message" style="display: none;">لا يوجد مستخدمين</div>
     </section>
   </div>
 
   <script>
-    const KEY = "m3tm_v3";
-    const DEFAULT = {
+    // ===== DATA MANAGEMENT =====
+    const STORAGE_KEY = "m3tm_rased_data_v3";
+    const THEME_KEY = "m3tm_theme";
+    const DEFAULT_DATA = {
       admin_pin: "123987",
-      users: [{id:1,pin:"1234",name:"أحمد",date:new Date().toISOString()}],
+      users: [
+        { id: 1, pin: "1234", name: "أحمد", role: "viewer", created: new Date().toISOString() }
+      ],
       news: [],
       sources: []
     };
 
-    let filteredNews = [];
-    let currentImportanceFilter = "";
-
-    function getUser() { return JSON.parse(sessionStorage.getItem("m3tm_user") || "null"); }
-    function setUser(u) { sessionStorage.setItem("m3tm_user", JSON.stringify(u)); }
-    function getData() { return JSON.parse(localStorage.getItem(KEY) || JSON.stringify(DEFAULT)); }
-    function saveData(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
-
-    function createPins() {
-      document.getElementById("pinInput").innerHTML = Array(6).fill()
-        .map((_, i) => `<input type="number" class="pin-digit" min="0" max="9" onkeyup="handlePin(event, ${i})" />`)
-        .join("");
+    function getData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : DEFAULT_DATA;
     }
 
-    function handlePin(e, i) {
-      if (e.target.value.length > 1) e.target.value = e.target.value[0];
-      if (e.target.value && i < 5) document.querySelectorAll(".pin-digit")[i+1].focus();
-      if (e.key === "Enter") verifyPin();
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function getCurrentUser() {
+      return JSON.parse(sessionStorage.getItem("m3tm_user") || "null");
+    }
+
+    function setCurrentUser(user) {
+      sessionStorage.setItem("m3tm_user", JSON.stringify(user));
+    }
+
+    // ===== LOGIN LOGIC =====
+    function createPinInputs() {
+      const container = document.getElementById("pinInput");
+      container.innerHTML = "";
+      for (let i = 0; i < 6; i++) {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.class = "pin-digit";
+        input.maxLength = 1;
+        input.className = "pin-digit";
+        input.min = 0;
+        input.max = 9;
+        input.placeholder = "•";
+        input.addEventListener("input", (e) => {
+          e.target.value = e.target.value.slice(0, 1);
+          if (e.target.value && i < 5) {
+            container.children[i + 1].focus();
+          }
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Backspace" && !e.target.value && i > 0) {
+            container.children[i - 1].focus();
+          }
+          if (e.key === "Enter") verifyPin();
+        });
+        container.appendChild(input);
+      }
     }
 
     function getPin() {
-      return Array.from(document.querySelectorAll(".pin-digit")).map(x => x.value).join("");
+      const inputs = document.querySelectorAll(".pin-digit");
+      return Array.from(inputs).map(i => i.value).join("");
     }
 
     function verifyPin() {
       const pin = getPin();
       if (pin.length !== 6) {
-        document.getElementById("errorMsg").textContent = "أدخل 6 أرقام";
+        showError("أدخل 6 أرقام");
         return;
       }
+
       const data = getData();
       const user = data.users.find(u => u.pin === pin);
+
       if (user) {
-        setUser(user);
+        setCurrentUser(user);
         showApp();
-        load();
+        loadData();
       } else {
-        document.getElementById("errorMsg").textContent = "PIN غير صحيح";
-        createPins();
+        showError("رقم PIN غير صحيح");
+        createPinInputs();
       }
     }
 
-    function toggleSetup() {
-      const s = document.getElementById("setupPanel");
-      s.style.display = s.style.display === "none" ? "block" : "none";
+    function toggleAdminSetup() {
+      const setup = document.getElementById("adminSetup");
+      setup.style.display = setup.style.display === "none" ? "block" : "none";
     }
 
-    function createUser() {
-      const admin = document.getElementById("adminPin").value;
-      const pin = document.getElementById("newUserPin").value;
-      const name = document.getElementById("newUserName").value;
+    function addNewUser() {
+      const adminPin = document.getElementById("adminPinInput").value;
+      const newPin = document.getElementById("newPinInput").value;
+      const name = document.getElementById("newPinName").value;
+
+      if (!adminPin || !newPin || !name) {
+        alert("أملأ جميع الحقول");
+        return;
+      }
+
       const data = getData();
-      if (data.admin_pin !== admin) {
-        alert("رقم الإدارة خاطئ");
+      if (data.admin_pin !== adminPin) {
+        alert("رقم السري الرئيسي غير صحيح");
         return;
       }
-      if (!pin || !name || pin.length < 4) {
-        alert("أملأ جميع الحقول (PIN 4 أرقام على الأقل)");
+
+      if (data.users.some(u => u.pin === newPin)) {
+        alert("هذا الرقم موجود بالفعل");
         return;
       }
-      data.users.push({id:Date.now(),pin,name,date:new Date().toISOString()});
+
+      data.users.push({
+        id: Math.max(...data.users.map(u => u.id), 0) + 1,
+        pin: newPin,
+        name: name,
+        role: "viewer",
+        created: new Date().toISOString()
+      });
+
       saveData(data);
-      alert("تم إنشاء المستخدم!");
-      toggleSetup();
-      document.getElementById("adminPin").value = "";
-      document.getElementById("newUserPin").value = "";
-      document.getElementById("newUserName").value = "";
+      alert("تم إضافة المستخدم بنجاح!");
+      toggleAdminSetup();
+      document.getElementById("adminPinInput").value = "";
+      document.getElementById("newPinInput").value = "";
+      document.getElementById("newPinName").value = "";
+    }
+
+    function showError(msg) {
+      const errorDiv = document.getElementById("errorMsg");
+      errorDiv.textContent = msg;
+      setTimeout(() => errorDiv.textContent = "", 3000);
     }
 
     function showApp() {
-      document.getElementById("loginScreen").classList.add("hidden");
-      document.getElementById("mainApp").classList.remove("hidden");
+      document.getElementById("loginScreen").classList.remove("active");
+      document.getElementById("mainApp").style.display = "block";
     }
 
     function logout() {
       sessionStorage.removeItem("m3tm_user");
-      document.getElementById("mainApp").classList.add("hidden");
-      document.getElementById("loginScreen").classList.remove("hidden");
-      createPins();
+      document.getElementById("mainApp").style.display = "none";
+      document.getElementById("loginScreen").classList.add("active");
+      createPinInputs();
+      document.getElementById("errorMsg").textContent = "";
     }
 
-    function switchPanel(id, btn) {
+    // ===== APP LOGIC =====
+    function openPanel(id, button) {
       document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
       document.getElementById(id).classList.add("active");
+
       document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+      if (button) button.classList.add("button");
     }
 
-    function saveNews(e) {
+    function addNews(e) {
       e.preventDefault();
-      const inputs = e.target.querySelectorAll("input, textarea, select");
-      const title = inputs[0].value;
-      const source = inputs[1].value;
-      const url = inputs[2].value;
-      const cat = inputs[3].value;
-      const imp = inputs[4].value;
-      const notes = inputs[5].value;
-      
+
+      const title = document.getElementById("newsTitle").value;
+      const source = document.getElementById("newsSource").value;
+      const url = document.getElementById("newsUrl").value;
+      const category = document.getElementById("newsCategory").value;
+      const importance = document.getElementById("newsImportance").value;
+      const notes = document.getElementById("newsNotes").value;
+
       const data = getData();
-      data.news.unshift({id:Date.now(),title,source,url,cat,imp,notes,date:new Date().toISOString()});
+      data.news.unshift({
+        id: Date.now(),
+        title,
+        source,
+        url,
+        category,
+        importance,
+        notes,
+        timestamp: new Date().toISOString()
+      });
+
       saveData(data);
       e.target.reset();
-      load();
-      switchPanel("news", document.querySelectorAll(".nav button")[0]);
+      loadData();
+      openPanel("news", document.querySelector('.nav button'));
     }
 
     function deleteNews(id) {
-      if (!confirm("حذف الخبر؟")) return;
+      if (!confirm("هل تريد حذف هذا الخبر؟")) return;
       const data = getData();
       data.news = data.news.filter(n => n.id !== id);
       saveData(data);
-      load();
+      loadData();
     }
 
-    function filterNews() {
-      const search = document.getElementById("newsSearch").value.toLowerCase();
-      const category = document.getElementById("categoryFilter").value;
-      const data = getData();
-      
-      filteredNews = data.news.filter(n => {
-        const matchSearch = n.title.toLowerCase().includes(search) || n.source.toLowerCase().includes(search);
-        const matchCategory = !category || n.cat === category;
-        const matchImportance = !currentImportanceFilter || n.imp === currentImportanceFilter;
-        return matchSearch && matchCategory && matchImportance;
-      });
-      
-      renderNews();
-    }
-
-    function filterByImportance(imp, btn) {
-      currentImportanceFilter = imp === currentImportanceFilter ? "" : imp;
-      document.querySelectorAll(".filter-tags .tag").forEach(t => t.classList.remove("active"));
-      if (currentImportanceFilter) {
-        btn.classList.add("active");
-      } else {
-        document.querySelectorAll(".filter-tags .tag")[3].classList.add("active");
-      }
-      filterNews();
-    }
-
-    function renderNews() {
-      const user = getUser();
-      const data = getData();
-      const isAdmin = user.pin === data.admin_pin;
-      const newsList = document.getElementById("newsList");
-      
-      if (filteredNews.length) {
-        document.getElementById("newsEmpty").style.display = "none";
-        newsList.innerHTML = filteredNews.map(n => `
-          <div class="card">
-            <h3>${n.title}</h3>
-            <p><strong>المصدر:</strong> ${n.source}</p>
-            <p><strong>التصنيف:</strong> 📂 ${n.cat}</p>
-            <p><span class="importance-badge importance-${n.imp === 'عالي جداً' ? 'high' : n.imp === 'مهم' ? 'medium' : 'low'}">${n.imp}</span></p>
-            ${n.notes ? `<p><strong>ملاحظات:</strong> ${n.notes}</p>` : ""}
-            ${n.url ? `<p><a href="${n.url}" target="_blank" style="color:var(--blue2);">🔗 فتح الرابط</a></p>` : ""}
-            <p style="font-size:11px; color:var(--muted);">📅 ${new Date(n.date).toLocaleString("ar-SA")}</p>
-            ${isAdmin ? `<div class="card-actions"><button class="delete" onclick="deleteNews(${n.id})">حذف</button></div>` : ""}
-          </div>
-        `).join("");
-      } else {
-        document.getElementById("newsEmpty").style.display = "block";
-        newsList.innerHTML = "";
-      }
-    }
-
-    function filterSources() {
-      const search = document.getElementById("sourceSearch").value.toLowerCase();
-      const data = getData();
-      const filtered = data.sources.filter(s => s.name.toLowerCase().includes(search));
-      
-      const sourcesList = document.getElementById("sourcesList");
-      const user = getUser();
-      const isAdmin = user.pin === data.admin_pin;
-      
-      if (filtered.length) {
-        document.getElementById("sourcesEmpty").style.display = "none";
-        sourcesList.innerHTML = filtered.map((s, i) => `
-          <div class="card">
-            <h3>${s.name}</h3>
-            ${s.desc ? `<p>${s.desc}</p>` : ""}
-            <p><a href="${s.url}" target="_blank" style="color:var(--blue2);">🔗 ${s.url}</a></p>
-            <p style="font-size:11px; color:var(--muted);">📅 ${new Date(s.date).toLocaleDateString("ar-SA")}</p>
-            ${isAdmin ? `<div class="card-actions"><button class="delete" onclick="deleteSource(${i})">حذف</button></div>` : ""}
-          </div>
-        `).join("");
-      } else {
-        document.getElementById("sourcesEmpty").style.display = "block";
-        sourcesList.innerHTML = "";
-      }
-    }
-
-    function addSourceForm(e) {
-      e.preventDefault();
-      const name = document.getElementById("sourceName").value;
-      const url = document.getElementById("sourceUrl").value;
-      const desc = document.getElementById("sourceDesc").value;
-      
-      const data = getData();
-      data.sources.unshift({name, url, desc, date: new Date().toISOString()});
-      saveData(data);
-      e.target.reset();
-      filterSources();
-      alert("تم إضافة المصدر!");
-    }
-
-    function deleteSource(i) {
-      if (!confirm("حذف المصدر؟")) return;
-      const data = getData();
-      data.sources.splice(i, 1);
-      saveData(data);
-      filterSources();
-    }
-
-    function addUserFromPanel() {
+    function addUserAdmin() {
       const pin = document.getElementById("userPin").value;
       const name = document.getElementById("userName2").value;
+
       if (!pin || !name) {
-        alert("أملأ الحقول");
+        alert("أملأ جميع الحقول");
         return;
       }
+
       const data = getData();
-      data.users.push({id:Date.now(),pin,name,date:new Date().toISOString()});
+      if (data.users.some(u => u.pin === pin)) {
+        alert("هذا الرقم موجود بالفعل");
+        return;
+      }
+
+      data.users.push({
+        id: Math.max(...data.users.map(u => u.id), 0) + 1,
+        pin,
+        name,
+        role: "viewer",
+        created: new Date().toISOString()
+      });
+
       saveData(data);
       document.getElementById("userPin").value = "";
       document.getElementById("userName2").value = "";
-      load();
+      loadData();
     }
 
     function deleteUser(id) {
-      if (!confirm("حذف المستخدم؟")) return;
+      if (!confirm("هل تريد حذف هذا المستخدم؟")) return;
       const data = getData();
       data.users = data.users.filter(u => u.id !== id);
       saveData(data);
-      load();
+      loadData();
     }
 
-    function load() {
-      const user = getUser();
+    function loadData() {
+      const user = getCurrentUser();
       const data = getData();
-      const isAdmin = user.pin === data.admin_pin;
 
+      // Update user info
       document.getElementById("userName").textContent = user.name;
-      document.getElementById("userRole").textContent = isAdmin ? "🔴 مسؤول" : "🟢 مشاهد";
-      document.getElementById("adminBtn").style.display = isAdmin ? "block" : "none";
-      document.getElementById("addBtn").style.display = isAdmin ? "block" : "none";
+      document.getElementById("userRole").textContent = user.role === "viewer" ? "مشاهد" : "مسؤول";
+
+      // Show admin nav if user is admin
+      const isAdmin = user.pin === data.admin_pin;
+      document.getElementById("adminNav").style.display = isAdmin ? "block" : "none";
+      document.getElementById("addNewsNav").style.display = isAdmin ? "block" : "none";
+      document.getElementById("addSourceNav").style.display = isAdmin ? "block" : "none";
+      document.getElementById("sourceAddForm").style.display = "none";
       document.getElementById("users").style.display = isAdmin ? "block" : "none";
 
+      // Update stats
       document.getElementById("newsCount").textContent = data.news.length;
       document.getElementById("sourcesCount").textContent = data.sources.length;
       document.getElementById("usersCount").textContent = data.users.length;
 
-      filteredNews = data.news;
-      renderNews();
+      // Render news with filters
+      filterNews();
+
+      // Render sources with search
       filterSources();
 
+      // Render users (Admin only)
       if (isAdmin) {
-        document.getElementById("usersList").innerHTML = data.users.map(u => `
+        const usersList = document.getElementById("usersList");
+        usersList.innerHTML = data.users.map(u => `
           <div class="card">
             <h3>${u.name}</h3>
             <p><strong>PIN:</strong> ${u.pin}</p>
-            <p style="font-size:11px; color:var(--muted);">${new Date(u.date).toLocaleDateString("ar-SA")}</p>
-            <div class="card-actions"><button class="delete" onclick="deleteUser(${u.id})">حذف</button></div>
+            <p><strong>النوع:</strong> ${u.role === "viewer" ? "مشاهد" : "مسؤول"}</p>
+            <p style="font-size: 12px; color: var(--muted);">📅 تاريخ الإنشاء: ${new Date(u.created).toLocaleDateString("ar-SA")}</p>
+            <div class="card-actions">
+              <button class="delete" onclick="deleteUser(${u.id})">🗑️ حذف</button>
+            </div>
           </div>
         `).join("");
       }
     }
 
-    const glow = document.getElementById("cursorGlow");
-    let gx = 0, gy = 0, tx = 0, ty = 0;
-    window.addEventListener("pointermove", e => {tx=e.clientX;ty=e.clientY;glow.style.opacity="1"});
-    window.addEventListener("pointerleave", () => glow.style.opacity="0");
-    function animGlow() {
-      gx+=(tx-gx)*0.12;
-      gy+=(ty-gy)*0.12;
-      glow.style.left=gx+"px";
-      glow.style.top=gy+"px";
-      requestAnimationFrame(animGlow);
+    function deleteSource(i) {
+      if (!confirm("هل تريد حذف هذا المصدر؟")) return;
+      const data = getData();
+      data.sources.splice(i, 1);
+      saveData(data);
+      loadData();
     }
-    animGlow();
 
-    createPins();
+    // ===== CURSOR GLOW =====
+    const glow = document.getElementById("cursorGlow");
+    let glowX = 0, glowY = 0, targetX = 0, targetY = 0;
+
+    window.addEventListener("pointermove", (e) => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+      glow.style.opacity = "1";
+    });
+
+    window.addEventListener("pointerleave", () => {
+      glow.style.opacity = "0";
+    });
+
+    function animateGlow() {
+      glowX += (targetX - glowX) * 0.12;
+      glowY += (targetY - glowY) * 0.12;
+      glow.style.left = glowX + "px";
+      glow.style.top = glowY + "px";
+      requestAnimationFrame(animateGlow);
+    }
+
+    animateGlow();
+
+    // ===== INITIALIZATION =====
+    function initTheme() {
+      const theme = localStorage.getItem(THEME_KEY) || "dark";
+      applyTheme(theme);
+    }
+
+    function toggleTheme() {
+      const current = document.body.className.includes("dark-mode") ? "dark" : 
+                      document.body.className.includes("light-mode") ? "light" : "dark";
+      const next = current === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    }
+
+    function applyTheme(theme) {
+      document.body.className = "";
+      if (theme === "light") {
+        document.body.classList.add("light-mode");
+        document.getElementById("themeIcon").textContent = "☀️";
+      } else {
+        document.body.classList.add("dark-mode");
+        document.getElementById("themeIcon").textContent = "🌙";
+      }
+    }
+
+    function filterNews() {
+      const data = getData();
+      const searchText = document.getElementById("newsSearch").value.toLowerCase();
+      const categoryFilter = document.getElementById("filterCategory").value;
+      const importanceFilter = document.getElementById("filterImportance").value;
+
+      let filtered = data.news.filter(n => {
+        const matchSearch = !searchText || 
+          n.title.toLowerCase().includes(searchText) || 
+          n.source.toLowerCase().includes(searchText) ||
+          n.category.toLowerCase().includes(searchText);
+        
+        const matchCategory = !categoryFilter || n.category === categoryFilter;
+        const matchImportance = !importanceFilter || n.importance === importanceFilter;
+        
+        return matchSearch && matchCategory && matchImportance;
+      });
+
+      document.getElementById("filteredCount").textContent = filtered.length;
+      renderNews(filtered);
+    }
+
+    function renderNews(newsList) {
+      const container = document.getElementById("newsList");
+      const user = getCurrentUser();
+      const data = getData();
+      const isAdmin = user.pin === data.admin_pin;
+
+      if (newsList.length === 0) {
+        document.getElementById("newsEmpty").style.display = "block";
+        container.innerHTML = "";
+      } else {
+        document.getElementById("newsEmpty").style.display = "none";
+        container.innerHTML = newsList.map(n => {
+          const importanceColor = n.importance === "عالي جداً" ? "var(--danger)" : 
+                                 n.importance === "مهم" ? "var(--blue)" : 
+                                 "var(--muted)";
+          const importanceIcon = n.importance === "عالي جداً" ? "⚡" : 
+                                n.importance === "مهم" ? "⭐" : 
+                                "📌";
+          
+          return `
+          <div class="card">
+            <h3>${n.title}</h3>
+            <p><strong>المصدر:</strong> ${n.source}</p>
+            <p><strong>التصنيف:</strong> <span style="background: rgba(88,170,255,.2); padding: 4px 8px; border-radius: 6px;">${n.category}</span></p>
+            <p><strong>الأهمية:</strong> <span style="color: ${importanceColor}; font-weight: bold;">${importanceIcon} ${n.importance}</span></p>
+            ${n.url ? `<p><a href="${n.url}" target="_blank" style="color: var(--blue2); text-decoration: none;">🔗 فتح الرابط</a></p>` : ""}
+            ${n.notes ? `<p><strong>الملاحظات:</strong> ${n.notes}</p>` : ""}
+            <p style="font-size: 12px; color: var(--muted);">📅 ${new Date(n.timestamp).toLocaleString("ar-SA")}</p>
+            ${isAdmin ? `<div class="card-actions"><button class="delete" onclick="deleteNews(${n.id})">🗑️ حذف</button></div>` : ""}
+          </div>
+        `}).join("");
+      }
+    }
+
+    function filterSources() {
+      const data = getData();
+      const searchText = document.getElementById("sourceSearch").value.toLowerCase();
+
+      let filtered = data.sources.filter(s => 
+        s.name.toLowerCase().includes(searchText) || 
+        s.url.toLowerCase().includes(searchText) ||
+        (s.desc && s.desc.toLowerCase().includes(searchText))
+      );
+
+      renderSources(filtered);
+    }
+
+    function renderSources(sourcesList) {
+      const container = document.getElementById("sourcesList");
+      const user = getCurrentUser();
+      const data = getData();
+      const isAdmin = user.pin === data.admin_pin;
+
+      if (sourcesList.length === 0) {
+        document.getElementById("sourcesEmpty").style.display = "block";
+        container.innerHTML = "";
+      } else {
+        document.getElementById("sourcesEmpty").style.display = "none";
+        container.innerHTML = sourcesList.map((s, i) => `
+          <div class="card">
+            <h3>${s.name}</h3>
+            <p><a href="${s.url}" target="_blank" style="color: var(--blue2); text-decoration: none;">🔗 ${s.url}</a></p>
+            ${s.desc ? `<p style="color: var(--muted); font-size: 14px;">${s.desc}</p>` : ""}
+            <p style="font-size: 12px; color: var(--muted);">📅 ${new Date(s.date).toLocaleDateString("ar-SA")}</p>
+            ${isAdmin ? `<div class="card-actions"><button class="delete" onclick="deleteSource(${i})">🗑️ حذف</button></div>` : ""}
+          </div>
+        `).join("");
+      }
+    }
+
+    function addSource() {
+      const name = document.getElementById("sourceName").value.trim();
+      const url = document.getElementById("sourceUrl").value.trim();
+      const desc = document.getElementById("sourceDesc").value.trim();
+
+      if (!name || !url) {
+        alert("أملأ الحقول المطلوبة (الاسم والرابط)");
+        return;
+      }
+
+      const data = getData();
+      data.sources.unshift({
+        name,
+        url,
+        desc,
+        date: new Date().toISOString()
+      });
+
+      saveData(data);
+      document.getElementById("sourceName").value = "";
+      document.getElementById("sourceUrl").value = "";
+      document.getElementById("sourceDesc").value = "";
+      toggleSourceForm();
+      filterSources();
+    }
+
+    function toggleSourceForm() {
+      const form = document.getElementById("sourceAddForm");
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    }
+
+    createPinInputs();
+    initTheme();
   </script>
 </body>
 </html>
