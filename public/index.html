@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M3TM | RASED</title>
+
+  <style>
+    :root {
+      --blue: #58aaff;
+      --blue2: #9bd0ff;
+      --panel: rgba(5, 14, 28, 0.62);
+      --border: rgba(120, 180, 255, 0.32);
+      --text: #eef7ff;
+      --muted: #a9bdd2;
+      --red: #ff4757;
+      --green: #2ed573;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      font-family: Tahoma, Arial, sans-serif;
+      color: var(--text);
+      background: #02040b;
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)),
+        radial-gradient(circle at 50% 38%, rgba(90,150,255,.14), transparent 32%),
+        url("assets/world-map.jpg");
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+
+    #cursorGlow {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 430px;
+      height: 430px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+      filter: blur(12px);
+      mix-blend-mode: screen;
+      background: radial-gradient(
+        circle,
+        rgba(95, 170, 255, .24) 0%,
+        rgba(95, 170, 255, .12) 28%,
+        rgba(95, 170, 255, .04) 55%,
+        transparent 75%
+      );
+      transition: opacity .22s ease;
+    }
+
+    .overlay {
+      position: relative;
+      z-index: 3;
+      min-height: 100vh;
+      padding: 28px;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.18), transparent 24%, transparent 76%, rgba(0,0,0,.18)),
+        rgba(0,0,0,.05);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+    }
+
+    .manual-btn {
+      background: linear-gradient(180deg, #3d9dff, #1a6ff0);
+      color: white;
+      border: 2px solid rgba(255,255,255,.85);
+      border-radius: 11px;
+      padding: 14px 26px;
+      font-size: 21px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 0 3px rgba(50,120,255,.34), 0 16px 40px rgba(0,0,0,.45);
+      transition: all 0.3s;
+    }
+
+    .manual-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 0 3px rgba(50,120,255,.5), 0 20px 50px rgba(0,0,0,.55);
+    }
+
+    .datebox {
+      text-align: left;
+      font-size: 25px;
+      font-weight: 900;
+      color: rgba(255,255,255,.82);
+      text-shadow: 0 0 20px rgba(120,180,255,.55);
+      direction: rtl;
+    }
+
+    .time {
+      display: inline-block;
+      margin-right: 12px;
+      direction: ltr;
+    }
+
+    .controls {
+      position: fixed;
+      left: 30px;
+      top: 125px;
+      width: 220px;
+      padding: 18px;
+      border-radius: 12px;
+      background: rgba(7, 14, 28, .58);
+      border: 1px solid rgba(150,190,255,.25);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 16px 45px rgba(0,0,0,.44);
+      z-index: 10;
+    }
+
+    .controls label {
+      display: block;
+      color: rgba(238,247,255,.72);
+      margin-bottom: 8px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #58aaff;
+    }
+
+    .hero {
+      min-height: 45vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    .title {
+      margin: 0;
+      direction: ltr;
+      font-size: clamp(50px, 8vw, 96px);
+      font-weight: 1000;
+      letter-spacing: 2px;
+      color: #f1f8ff;
+      text-shadow:
+        0 0 10px rgba(120, 185, 255, .96),
+        0 0 34px rgba(80, 145, 255, .65),
+        0 8px 0 rgba(0,0,0,.36);
+    }
+
+    .subtitle {
+      margin-top: 18px;
+      color: rgba(235,246,255,.72);
+      font-size: 19px;
+      text-shadow: 0 0 16px rgba(0,0,0,.95);
+    }
+
+    .nav {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      z-index: 50;
+    }
+
+    .nav button {
+      border: 1px solid rgba(120,180,255,.34);
+      background: rgba(8, 20, 40, .72);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 900;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.38);
+      transition: all 0.3s;
+    }
+
+    .nav button.active,
+    .nav button:hover {
+      background: linear-gradient(180deg, rgba(73,150,255,.94), rgba(26,95,210,.86));
+      border-color: rgba(255,255,255,.68);
+    }
+
+    .panel {
+      display: none;
+      width: min(1180px, calc(100vw - 56px));
+      margin: 20px auto 110px;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 22px 60px rgba(0,0,0,.50);
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 18px;
+      border-radius: 16px;
+      background: rgba(0, 8, 18, .66);
+      border: 1px solid rgba(130,180,255,.24);
+    }
+
+    .field {
+      width: 100%;
+      margin-top: 10px;
+      padding: 13px;
+      border-radius: 11px;
+      border: 1px solid rgba(130,180,255,.30);
+      background: rgba(0,0,0,.40);
+      color: var(--text);
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .field:focus {
+      border-color: rgba(130,180,255,.6);
+      background: rgba(0,0,0,.6);
+    }
+
+    textarea.field {
+      min-height: 95px;
+      resize: vertical;
+    }
+
+    .primary {
+      margin-top: 12px;
+      border: 0;
+      border-radius: 11px;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, #4aa6ff, #1768d8);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(74, 166, 255, 0.4);
+    }
+
+    .secondary {
+      background: rgba(120,180,255,.2);
+      border: 1px solid rgba(120,180,255,.4);
+      color: var(--text);
+    }
+
+    .secondary:hover {
+      background: rgba(120,180,255,.3);
+    }
+
+    .item {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 13px;
+      background: rgba(0,0,0,.32);
+      border: 1px solid rgba(130,180,255,.20);
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+    }
+
+    .item-content {
+      flex: 1;
+    }
+
+    .item a {
+      color: var(--blue2);
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .item-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+
+    .delete-btn {
+      background: rgba(255, 71, 87, 0.5);
+      color: white;
+    }
+
+    .world-box {
+      width: 100%;
+      height: 680px;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid rgba(130,180,255,.32);
+      background: #000;
+    }
+
+    .world-box iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #000;
+    }
+
+    .world-box.full {
+      position: fixed;
+      inset: 12px;
+      z-index: 999;
+      width: auto;
+      height: auto;
+      border-radius: 18px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    #loginScreen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,20,40,0.9), rgba(0,40,80,0.9)), url("assets/world-map.jpg");
+      background-size: cover;
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .login-container {
+      text-align: center;
+      background: rgba(5, 14, 28, 0.8);
+      border: 2px solid rgba(120, 180, 255, 0.5);
+      border-radius: 20px;
+      padding: 40px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    }
+
+    .login-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #f1f8ff;
+      text-shadow: 0 0 20px rgba(120, 185, 255, .96);
+      margin-bottom: 10px;
+    }
+
+    .pin-input {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .pin-digit {
+      width: 50px;
+      height: 50px;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      border-radius: 10px;
+      border: 2px solid rgba(120,180,255,.5);
+      background: rgba(0,0,0,.4);
+      color: white;
+    }
+
+    .pin-digit:focus {
+      outline: none;
+      border-color: #58aaff;
+      background: rgba(0,0,0,.6);
+    }
+
+    .login-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .login-btn {
+      padding: 12px 24px;
+      border: 0;
+      border-radius: 10px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .login-btn.submit {
+      background: linear-gradient(180deg, #4aa6ff, #1768d8);
+      color: white;
+    }
+
+    .login-btn.submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(74, 166, 255, 0.4);
+    }
+
+    .user-badge {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(74, 166, 255, 0.3);
+      border: 1px solid rgba(120,180,255,.5);
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 40;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .logout-btn {
+      background: linear-gradient(180deg, #ff6b6b, #ee3b6b);
+      color: white;
+      border: 0;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: all 0.3s;
+    }
+
+    .error-msg {
+      color: var(--red);
+      margin-top: 10px;
+      min-height: 20px;
+    }
+
+    @media (max-width: 760px) {
+      .overlay { padding: 16px; }
+      .controls { position: static; width: 100%; margin: 16px 0; }
+      .topbar { flex-direction: column; }
+      .hero { min-height: 35vh; }
+      .nav { position: static; margin: 20px 0; }
+      .panel { width: 100%; margin-bottom: 20px; }
+      .item { flex-direction: column; }
+      .item-actions { margin-top: 10px; width: 100%; }
+      .login-container { width: 90%; max-width: 400px; padding: 30px 20px; }
+      .pin-digit { width: 40px; height: 40px; font-size: 18px; }
+      .user-badge { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cursorGlow"></div>
+
+  <div id="loginScreen" style="display: flex;">
+    <div class="login-container">
+      <div class="login-title">🔐 تسجيل الدخول</div>
+      <label style="color: rgba(235,246,255,.7); display: block; margin-bottom: 10px;">PIN (4 أرقام)</label>
+      <div class="pin-input">
+        <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="pin0" />
+        <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="pin1" />
+        <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="pin2" />
+        <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="pin3" />
+      </div>
+      <button class="login-btn submit" onclick="loginUser()">دخول</button>
+      <div class="error-msg" id="loginError"></div>
+    </div>
+  </div>
+
+  <div id="mainContent" style="display: none;">
+    <div id="userBadge" class="user-badge">
+      <span id="userInfo">—</span>
+      <button class="logout-btn" onclick="logout()">خروج</button>
+    </div>
+
+    <div class="overlay">
+      <div class="topbar">
+        <button class="manual-btn" onclick="manualRefresh()">↻ تحديث</button>
+        <div class="datebox">
+          <span id="hijriDate">—</span>
+          <span class="time" id="clock">--:--:--</span>
+        </div>
+      </div>
+
+      <aside class="controls">
+        <label>شفافية الزجاج</label>
+        <input type="range" min="20" max="90" value="62" oninput="setGlass(this.value)" />
+        <label style="margin-top:16px">حجم الخط</label>
+        <input type="range" min="90" max="125" value="100" oninput="setFont(this.value)" />
+      </aside>
+
+      <section class="hero">
+        <div>
+          <h1 class="title">M3™ - RASED</h1>
+          <div class="subtitle">نظام الرصد الأمن / نسخة 2.0</div>
+        </div>
+      </section>
+
+      <nav class="nav">
+        <button class="active" onclick="openPanel('dashboard', this)">📊 لوحة الرصد</button>
+        <button onclick="openPanel('news', this)">📰 الأخبار</button>
+        <button id="adminBtn" style="display: none;" onclick="openPanel('admin', this)">⚙️ الإدارة</button>
+        <button id="usersBtn" style="display: none;" onclick="openPanel('users', this)">👥 المستخدمون</button>
+        <button onclick="openPanel('sources', this)">📚 المصادر</button>
+        <button onclick="openPanel('world', this)">🌍 World Monitor</button>
+      </nav>
+
+      <section id="dashboard" class="panel active">
+        <h2>📊 لوحة الرصد</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>الحالة</h3>
+            <p>✅ آمن ومتصل</p>
+          </div>
+          <div class="card">
+            <h3>الأخبار</h3>
+            <p style="font-size: 24px; font-weight: bold;" id="itemsCount">0</p>
+          </div>
+          <div class="card">
+            <h3>المصادر</h3>
+            <p style="font-size: 24px; font-weight: bold;" id="sourcesCount">0</p>
+          </div>
+          <div class="card">
+            <h3>المستخدمون</h3>
+            <p style="font-size: 24px; font-weight: bold;" id="usersCount">0</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="news" class="panel">
+        <h2>📰 الأخبار</h2>
+        <div id="newsList"></div>
+      </section>
+
+      <section id="admin" class="panel" style="display: none;">
+        <h2>⚙️ إضافة خبر</h2>
+        <input class="field" id="newsTitle" placeholder="العنوان" />
+        <input class="field" id="newsSource" placeholder="المصدر" />
+        <input class="field" id="newsUrl" placeholder="الرابط" />
+        <select class="field" id="newsCategory">
+          <option>حج</option><option>مدينة</option><option>باكستان</option>
+          <option>OSINT</option><option>أمن سيبراني</option>
+        </select>
+        <select class="field" id="newsImportance">
+          <option>منخفض</option><option>متوسط</option><option>عالي</option><option>حرج</option>
+        </select>
+        <button class="primary" onclick="addNews()">➕ إضافة</button>
+        <h3 style="margin-top: 30px;">إدارة الأخبار</h3>
+        <div id="adminNewsList"></div>
+      </section>
+
+      <section id="users" class="panel" style="display: none;">
+        <h2>👥 إدارة المستخدمين</h2>
+        <input class="field" id="newUserName" placeholder="الاسم" />
+        <input class="field" id="newUserPin" placeholder="PIN (4 أرقام)" maxlength="4" />
+        <select class="field" id="newUserRole">
+          <option>مستخدم</option><option>محرر</option><option>مسؤول</option>
+        </select>
+        <button class="primary" onclick="addUser()">➕ إضافة</button>
+        <h3 style="margin-top: 30px;">قائمة المستخدمين</h3>
+        <div id="usersList"></div>
+      </section>
+
+      <section id="sources" class="panel">
+        <h2>📚 المصادر</h2>
+        <input class="field" id="sourceName" placeholder="الاسم" />
+        <input class="field" id="sourceUrl" placeholder="الرابط" />
+        <button class="primary" onclick="addSource()">➕ إضافة</button>
+        <div id="sourcesList"></div>
+      </section>
+
+      <section id="world" class="panel">
+        <h2>🌍 World Monitor</h2>
+        <input class="field" id="worldUrl" value="https://worldmonitor.example.com" />
+        <button class="primary" onclick="loadWorld()">📍 تحميل</button>
+        <button class="primary secondary" onclick="toggleWorld()">🔍 تكبير</button>
+        <button class="primary secondary" onclick="openWorldExternal()">🔗 فتح خارجي</button>
+        <div id="worldBox" class="world-box">
+          <iframe id="worldFrame" src="about:blank" title="World Monitor" loading="lazy"></iframe>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const dataKeys = { users: "m3tm_rased_users_v2", news: "m3tm_rased_news_v2", sources: "m3tm_rased_sources_v2", session: "m3tm_rased_session_v2" };
+    const defaultAdminPin = "0000";
+    let currentUser = null;
+
+    function encryptData(str) { return btoa(encodeURIComponent(str)); }
+    function decryptData(str) { try { return decodeURIComponent(atob(str)); } catch { return str; } }
+    function getData(key) { const raw = localStorage.getItem(key) || "[]"; try { return JSON.parse(decryptData(raw)); } catch { return JSON.parse(raw); } }
+    function saveData(key, data) { localStorage.setItem(key, encryptData(JSON.stringify(data))); }
+
+    function initializeData() {
+      if (!localStorage.getItem(dataKeys.users)) {
+        const defaultUsers = [
+          { id: 1, pin: encryptData(defaultAdminPin), name: "أحمد", role: "admin", created: new Date().toISOString() },
+          { id: 2, pin: encryptData("1234"), name: "مراقب", role: "user", created: new Date().toISOString() }
+        ];
+        saveData(dataKeys.users, defaultUsers);
+      }
+      if (!localStorage.getItem(dataKeys.news)) saveData(dataKeys.news, []);
+      if (!localStorage.getItem(dataKeys.sources)) saveData(dataKeys.sources, []);
+    }
+
+    function getPinFromInputs() {
+      let pin = "";
+      for (let i = 0; i < 4; i++) pin += document.getElementById(`pin${i}`).value;
+      return pin;
+    }
+
+    function clearPinInputs() {
+      for (let i = 0; i < 4; i++) document.getElementById(`pin${i}`).value = "";
+      document.getElementById("pin0").focus();
+    }
+
+    function loginUser() {
+      const pin = getPinFromInputs();
+      if (pin.length !== 4) {
+        document.getElementById("loginError").textContent = "أدخل 4 أرقام";
+        setTimeout(() => { document.getElementById("loginError").textContent = ""; }, 3000);
+        return;
+      }
+      const users = getData(dataKeys.users);
+      const user = users.find(u => decryptData(u.pin) === pin);
+      if (user) {
+        currentUser = user;
+        localStorage.setItem(dataKeys.session, encryptData(JSON.stringify(user)));
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("mainContent").style.display = "block";
+        document.getElementById("userInfo").textContent = `${currentUser.role === "admin" ? "🔐" : "👤"} ${currentUser.name}`;
+        document.getElementById("adminBtn").style.display = currentUser.role === "admin" ? "block" : "none";
+        document.getElementById("usersBtn").style.display = currentUser.role === "admin" ? "block" : "none";
+        clearPinInputs();
+        render();
+      } else {
+        document.getElementById("loginError").textContent = "PIN غير صحيح";
+        clearPinInputs();
+      }
+    }
+
+    function logout() {
+      if (confirm("تسجيل خروج؟")) {
+        currentUser = null;
+        localStorage.removeItem(dataKeys.session);
+        document.getElementById("mainContent").style.display = "none";
+        document.getElementById("loginScreen").style.display = "flex";
+        clearPinInputs();
+      }
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const input = document.getElementById(`pin${i}`);
+      input.addEventListener("input", (e) => { if (e.target.value.length === 1 && i < 3) document.getElementById(`pin${i + 1}`).focus(); });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && e.target.value.length === 0 && i > 0) document.getElementById(`pin${i - 1}`).focus();
+        if (e.key === "Enter") loginUser();
+      });
+    }
+
+    function openPanel(id, button) {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+      if (button) button.classList.add("active");
+      render();
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString("ar-SA", { hour12: false });
+      document.getElementById("hijriDate").textContent = new Intl.DateTimeFormat("ar-SA-u-ca-islamic", { day: "numeric", month: "long", year: "numeric" }).format(now);
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function setGlass(value) { document.documentElement.style.setProperty("--panel", `rgba(5, 14, 28, ${value / 100})`); }
+    function setFont(value) { document.body.style.fontSize = value + "%"; }
+    function manualRefresh() { render(); const btn = document.querySelector(".manual-btn"); const old = btn.textContent; btn.textContent = "✓ تم"; setTimeout(() => btn.textContent = old, 1200); }
+
+    function addNews() {
+      if (!currentUser || currentUser.role !== "admin") { alert("صلاحيات إدارية مطلوبة"); return; }
+      const title = document.getElementById("newsTitle").value.trim();
+      const source = document.getElementById("newsSource").value.trim();
+      const url = document.getElementById("newsUrl").value.trim();
+      const category = document.getElementById("newsCategory").value;
+      const importance = document.getElementById("newsImportance").value;
+      if (!title || !source) { alert("أدخل العنوان والمصدر"); return; }
+      const news = getData(dataKeys.news);
+      news.unshift({ id: Date.now(), title, source, url, category, importance, timestamp: new Date().toISOString(), addedBy: currentUser.id });
+      saveData(dataKeys.news, news);
+      document.getElementById("newsTitle").value = "";
+      document.getElementById("newsSource").value = "";
+      document.getElementById("newsUrl").value = "";
+      render();
+    }
+
+    function deleteNews(id) {
+      if (!currentUser || currentUser.role !== "admin") { alert("صلاحيات إدارية مطلوبة"); return; }
+      if (!confirm("حذف هذا الخبر؟")) return;
+      let news = getData(dataKeys.news);
+      news = news.filter(n => n.id !== id);
+      saveData(dataKeys.news, news);
+      render();
+    }
+
+    function addUser() {
+      if (!currentUser || currentUser.role !== "admin") { alert("صلاحيات إدارية مطلوبة"); return; }
+      const name = document.getElementById("newUserName").value.trim();
+      const pin = document.getElementById("newUserPin").value.trim();
+      const role = document.getElementById("newUserRole").value;
+      if (!name || !pin || pin.length !== 4) { alert("أدخل الاسم و PIN من 4 أرقام"); return; }
+      const users = getData(dataKeys.users);
+      if (users.some(u => decryptData(u.pin) === pin)) { alert("هذا الرقم موجود"); return; }
+      users.push({ id: Math.max(...users.map(u => u.id), 0) + 1, pin: encryptData(pin), name, role, created: new Date().toISOString() });
+      saveData(dataKeys.users, users);
+      document.getElementById("newUserName").value = "";
+      document.getElementById("newUserPin").value = "";
+      render();
+    }
+
+    function deleteUser(id) {
+      if (!currentUser || currentUser.role !== "admin") { alert("صلاحيات إدارية مطلوبة"); return; }
+      if (id === currentUser.id) { alert("لا يمكن حذف حسابك"); return; }
+      if (!confirm("حذف هذا المستخدم؟")) return;
+      let users = getData(dataKeys.users);
+      users = users.filter(u => u.id !== id);
+      saveData(dataKeys.users, users);
+      render();
+    }
+
+    function addSource() {
+      const name = document.getElementById("sourceName").value.trim();
+      const url = document.getElementById("sourceUrl").value.trim();
+      if (!name || !url) { alert("أدخل الاسم والرابط"); return; }
+      const sources = getData(dataKeys.sources);
+      sources.unshift({ id: Date.now(), name, url, added: new Date().toISOString(), addedBy: currentUser.id });
+      saveData(dataKeys.sources, sources);
+      document.getElementById("sourceName").value = "";
+      document.getElementById("sourceUrl").value = "";
+      render();
+    }
+
+    function deleteSource(id) {
+      if (!currentUser || currentUser.role !== "admin") { alert("صلاحيات إدارية مطلوبة"); return; }
+      if (!confirm("حذف المصدر؟")) return;
+      let sources = getData(dataKeys.sources);
+      sources = sources.filter(s => s.id !== id);
+      saveData(dataKeys.sources, sources);
+      render();
+    }
+
+    function render() {
+      const news = getData(dataKeys.news);
+      const sources = getData(dataKeys.sources);
+      const users = getData(dataKeys.users);
+      document.getElementById("itemsCount").textContent = news.length;
+      document.getElementById("sourcesCount").textContent = sources.length;
+      document.getElementById("usersCount").textContent = users.length;
+
+      document.getElementById("newsList").innerHTML = news.map(n => `
+        <div class="item">
+          <div class="item-content">
+            <strong>${n.title}</strong>
+            <div style="margin-top: 8px; color: rgba(235,246,255,.7);">
+              <span>📰 ${n.source}</span> | <span>📂 ${n.category}</span> | 
+              <span style="color: ${n.importance === "حرج" ? "#ff4757" : n.importance === "عالي" ? "#ffa502" : "#58aaff"};">⚡ ${n.importance}</span>
+            </div>
+            ${n.url ? `<a href="${n.url}" target="_blank" style="color: var(--blue2); display: block; margin-top: 8px;">🔗 فتح الرابط</a>` : ""}
+            <small style="color: var(--muted);">⏰ ${new Date(n.timestamp).toLocaleString("ar-SA")}</small>
+          </div>
+          ${currentUser && currentUser.role === "admin" ? `<div class="item-actions"><button class="item-btn delete-btn" onclick="deleteNews(${n.id})">حذف</button></div>` : ""}
+        </div>
+      `).join("") || '<p style="color: var(--muted);">لا توجد أخبار</p>';
+
+      document.getElementById("adminNewsList").innerHTML = news.map(n => `
+        <div class="item">
+          <div class="item-content">
+            <strong>${n.title}</strong>
+            <p style="margin: 5px 0; color: rgba(235,246,255,.7);">المصدر: ${n.source} | التصنيف: ${n.category}</p>
+            ${n.url ? `<a href="${n.url}" target="_blank" style="color: var(--blue2);">🔗 ${n.url}</a>` : ""}
+          </div>
+          <div class="item-actions"><button class="item-btn delete-btn" onclick="deleteNews(${n.id})">حذف</button></div>
+        </div>
+      `).join("") || '<p style="color: var(--muted);">لا توجد أخبار</p>';
+
+      document.getElementById("usersList").innerHTML = users.map(u => `
+        <div class="item">
+          <div class="item-content">
+            <strong>${u.name}</strong>
+            <p style="margin: 5px 0;">الدور: <span style="color: ${u.role === "admin" ? "#ffd700" : "#58aaff"};">${u.role}</span></p>
+          </div>
+          ${u.id !== currentUser.id ? `<div class="item-actions"><button class="item-btn delete-btn" onclick="deleteUser(${u.id})">حذف</button></div>` : ""}
+        </div>
+      `).join("");
+
+      document.getElementById("sourcesList").innerHTML = sources.map(s => `
+        <div class="item">
+          <div class="item-content">
+            <strong>${s.name}</strong>
+            <a href="${s.url}" target="_blank" style="color: var(--blue2); word-break: break-all;">🔗 ${s.url}</a>
+          </div>
+          ${currentUser && currentUser.role === "admin" ? `<div class="item-actions"><button class="item-btn delete-btn" onclick="deleteSource(${s.id})">حذف</button></div>` : ""}
+        </div>
+      `).join("") || '<p style="color: var(--muted);">لا توجد مصادر</p>';
+    }
+
+    function loadWorld() { document.getElementById("worldFrame").src = document.getElementById("worldUrl").value.trim(); }
+    function toggleWorld() { document.getElementById("worldBox").classList.toggle("full"); }
+    function openWorldExternal() { window.open(document.getElementById("worldUrl").value.trim(), "_blank", "noopener,noreferrer"); }
+
+    const glow = document.getElementById("cursorGlow");
+    let glowX = 0, glowY = 0, targetX = 0, targetY = 0;
+    window.addEventListener("pointermove", (e) => { targetX = e.clientX; targetY = e.clientY; glow.style.opacity = "1"; });
+    window.addEventListener("pointerleave", () => { glow.style.opacity = "0"; });
+    function animateGlow() {
+      glowX += (targetX - glowX) * 0.12;
+      glowY += (targetY - glowY) * 0.12;
+      glow.style.left = glowX + "px";
+      glow.style.top = glowY + "px";
+      requestAnimationFrame(animateGlow);
+    }
+
+    initializeData();
+    const sessionData = localStorage.getItem(dataKeys.session);
+    if (sessionData) {
+      try {
+        currentUser = JSON.parse(decryptData(sessionData));
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("mainContent").style.display = "block";
+        document.getElementById("userInfo").textContent = `${currentUser.role === "admin" ? "🔐" : "👤"} ${currentUser.name}`;
+        document.getElementById("adminBtn").style.display = currentUser.role === "admin" ? "block" : "none";
+        document.getElementById("usersBtn").style.display = currentUser.role === "admin" ? "block" : "none";
+        render();
+      } catch { }
+    }
+    animateGlow();
+  </script>
+</body>
+</html>
