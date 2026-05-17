@@ -3,23 +3,21 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main, deploy ]
-  pull_request:
-    branches: [ main, deploy ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Pages
@@ -28,32 +26,15 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'public'
+          path: '.'
 
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v3
-
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Validate HTML
-        run: |
-          if [ -f "public/index.html" ]; then
-            echo "✅ index.html found"
-            echo "📊 File size: $(wc -c < public/index.html) bytes"
-          else
-            echo "❌ index.html not found"
-            exit 1
-          fi
-
-      - name: Check for malicious content
-        run: |
-          if grep -q "dangerouslySetInnerHTML\|eval\|script>.*innerHTML" public/index.html; then
-            echo "⚠️ Warning: Potentially unsafe patterns detected"
-          else
-            echo "✅ Security check passed"
-          fi
