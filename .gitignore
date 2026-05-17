@@ -1,0 +1,50 @@
+# Node and npm
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build and dist
+dist/
+build/
+*.min.js
+*.min.css
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Sensitive data
+*.key
+*.pem
+.ssh/
+secrets/
+private/
+
+# Firebase
+.firebase/
+.firebaserc
+*.log
+
+# Backup files
+*.backup
+*.bak
+~*
+
+# OS
+.DS_Store
+Thumbs.db
