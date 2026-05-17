@@ -393,7 +393,7 @@
       
       <div id="setupPanel" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
         <p style="font-size:12px; color:var(--muted);">أدخل رقم الإدارة (Admin PIN)</p>
-        <input type="password" id="adminPin" placeholder="0000" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
+        <input type="password" id="adminPin" placeholder="123987" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
         <input type="text" id="newUserPin" placeholder="PIN جديد" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
         <input type="text" id="newUserName" placeholder="الاسم" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
         <button class="btn btn-primary" onclick="createUser()" style="background:linear-gradient(180deg, #51cf66, #2f9e44);">إضافة</button>
@@ -496,7 +496,7 @@
   <script>
     const KEY = "m3tm_v2";
     const DEFAULT = {
-      admin_pin: "0000",
+      admin_pin: "123987",
       users: [{id:1,pin:"1234",name:"أحمد",date:new Date().toISOString()}],
       news: [],
       sources: []
