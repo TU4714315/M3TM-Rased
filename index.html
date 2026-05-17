@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M3TM | RASED - نظام الرصد الآمن</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --blue: #58aaff;
+      --blue2: #9bd0ff;
+      --panel: rgba(5, 14, 28, 0.62);
+      --border: rgba(120, 180, 255, 0.32);
+      --text: #eef7ff;
+      --muted: #a9bdd2;
+      --danger: #ff6b6b;
+      --success: #51cf66;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100vh;
+      font-family: Tahoma, Arial, sans-serif;
+      color: var(--text);
+      background: #02040b;
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)),
+        radial-gradient(circle at 50% 38%, rgba(90,150,255,.14), transparent 32%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600'%3E%3Crect fill='%23020408' width='1000' height='600'/%3E%3C/svg%3E");
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+
+    #cursorGlow {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 430px;
+      height: 430px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+      filter: blur(12px);
+      mix-blend-mode: screen;
+      background: radial-gradient(
+        circle,
+        rgba(95, 170, 255, .24) 0%,
+        rgba(95, 170, 255, .12) 28%,
+        rgba(95, 170, 255, .04) 55%,
+        transparent 75%
+      );
+      transition: opacity .22s ease;
+    }
+
+    .container {
+      position: relative;
+      z-index: 3;
+      min-height: 100vh;
+      padding: 28px;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.18), transparent 24%, transparent 76%, rgba(0,0,0,.18)),
+        rgba(0,0,0,.05);
+    }
+
+    .login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .login-screen.hidden {
+      display: none;
+    }
+
+    .login-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      width: min(400px, 90vw);
+      text-align: center;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 22px 60px rgba(0,0,0,.50);
+    }
+
+    .login-box h1 {
+      font-size: 36px;
+      margin: 0 0 10px;
+      color: var(--blue2);
+    }
+
+    .pin-input {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .pin-digit {
+      width: 50px;
+      height: 50px;
+      font-size: 24px;
+      text-align: center;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: rgba(0,0,0,.4);
+      color: var(--text);
+      font-weight: bold;
+      outline: none;
+      transition: all .3s;
+    }
+
+    .pin-digit:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 10px rgba(88,170,255,.5);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: 0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all .3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #4aa6ff, #1768d8);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: rgba(88,170,255,.1);
+      color: var(--blue2);
+      border: 2px solid var(--blue);
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 14px;
+      margin-top: 10px;
+      min-height: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 30px;
+    }
+
+    .user-info {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .logout-btn {
+      background: linear-gradient(180deg, #ff6b6b, #d32f2f);
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    .title {
+      font-size: 40px;
+      font-weight: 900;
+      margin: 0;
+      color: var(--text);
+      text-shadow: 0 0 20px rgba(88,170,255,.5);
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    .nav button {
+      border: 1px solid rgba(120,180,255,.34);
+      background: rgba(8, 20, 40, .72);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all .3s;
+      font-size: 13px;
+    }
+
+    .nav button.active {
+      background: linear-gradient(180deg, rgba(73,150,255,.94), rgba(26,95,210,.86));
+      border-color: rgba(255,255,255,.68);
+    }
+
+    .panel {
+      display: none;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 22px 60px rgba(0,0,0,.50);
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 22px;
+      color: var(--blue2);
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(0,0,0,.4);
+      color: var(--text);
+      outline: none;
+      font-size: 13px;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--blue);
+    }
+
+    .form-group textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      background: rgba(0, 8, 18, .66);
+      border: 1px solid rgba(130,180,255,.24);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all .3s;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--blue2);
+    }
+
+    .card p {
+      margin: 6px 0;
+      font-size: 13px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .card-actions button {
+      flex: 1;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(88,170,255,.1);
+      color: var(--blue2);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .card-actions .delete {
+      background: rgba(255,107,107,.1);
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: rgba(88,170,255,.1);
+      border: 2px solid var(--blue);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-box .number {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--blue2);
+    }
+
+    .stat-box .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .empty-message {
+      text-align: center;
+      color: var(--muted);
+      padding: 30px 20px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 14px;
+      }
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .panel {
+        padding: 14px;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .title {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cursorGlow"></div>
+
+  <!-- LOGIN -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h1>🔐 M3TM RASED</h1>
+      <p>نظام الرصد الآمن</p>
+      <div class="pin-input" id="pinInput"></div>
+      <button class="btn btn-primary" onclick="verifyPin()">دخول</button>
+      <button class="btn btn-secondary" onclick="toggleSetup()">مستخدم جديد</button>
+      
+      <div id="setupPanel" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
+        <p style="font-size:12px; color:var(--muted);">أدخل رقم الإدارة (Admin PIN)</p>
+        <input type="password" id="adminPin" placeholder="0000" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
+        <input type="text" id="newUserPin" placeholder="PIN جديد" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
+        <input type="text" id="newUserName" placeholder="الاسم" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.4); color:var(--text); margin-bottom:8px;" />
+        <button class="btn btn-primary" onclick="createUser()" style="background:linear-gradient(180deg, #51cf66, #2f9e44);">إضافة</button>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="container hidden" id="mainApp">
+    <div class="topbar">
+      <div>
+        <h1 class="title">📊 M3TM RASED</h1>
+      </div>
+      <div class="user-info">
+        <div><strong id="userName">المستخدم</strong></div>
+        <div id="userRole" style="font-size:12px; color:var(--blue); margin-top:4px;">مشاهد</div>
+        <button class="logout-btn" onclick="logout()">تسجيل خروج</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box"><div class="number" id="newsCount">0</div><div class="label">أخبار</div></div>
+      <div class="stat-box"><div class="number" id="sourcesCount">0</div><div class="label">مصادر</div></div>
+      <div class="stat-box"><div class="number" id="usersCount">0</div><div class="label">مستخدمين</div></div>
+    </div>
+
+    <nav class="nav">
+      <button class="active" onclick="switchPanel('news', this)">📰 أخبار</button>
+      <button onclick="switchPanel('sources', this)">📚 مصادر</button>
+      <button id="adminBtn" style="display:none" onclick="switchPanel('users', this)">👥 مستخدمين</button>
+      <button id="addBtn" style="display:none" onclick="switchPanel('add', this)">➕ إضافة</button>
+    </nav>
+
+    <section id="news" class="panel active">
+      <h2>📰 الأخبار</h2>
+      <div id="newsList" class="grid"></div>
+      <div id="newsEmpty" class="empty-message">لا توجد أخبار</div>
+    </section>
+
+    <section id="sources" class="panel">
+      <h2>📚 مكتبة المصادر</h2>
+      <div id="sourcesList" class="grid"></div>
+      <div id="sourcesEmpty" class="empty-message">لا توجد مصادر</div>
+    </section>
+
+    <section id="add" class="panel">
+      <h2>➕ إضافة خبر</h2>
+      <form onsubmit="saveNews(event)">
+        <div class="form-group">
+          <label>العنوان *</label>
+          <input type="text" required />
+        </div>
+        <div class="form-group">
+          <label>المصدر *</label>
+          <input type="text" required />
+        </div>
+        <div class="form-group">
+          <label>الرابط</label>
+          <input type="url" />
+        </div>
+        <div class="form-group">
+          <label>التصنيف</label>
+          <select>
+            <option>عام</option>
+            <option>حج</option>
+            <option>المدينة</option>
+            <option>أمني</option>
+            <option>عاجل</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>الأهمية</label>
+          <select>
+            <option>عادي</option>
+            <option>مهم</option>
+            <option>عالي جداً</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 حفظ</button>
+      </form>
+    </section>
+
+    <section id="users" class="panel">
+      <h2>👥 المستخدمين</h2>
+      <div class="form-group">
+        <label>PIN:</label>
+        <input type="text" id="userPin" />
+      </div>
+      <div class="form-group">
+        <label>الاسم:</label>
+        <input type="text" id="userName2" />
+      </div>
+      <button class="btn btn-primary" onclick="addUserFromPanel()" style="width:100%;">إضافة</button>
+      <div id="usersList" class="grid" style="margin-top:20px;"></div>
+    </section>
+  </div>
+
+  <script>
+    const KEY = "m3tm_v2";
+    const DEFAULT = {
+      admin_pin: "0000",
+      users: [{id:1,pin:"1234",name:"أحمد",date:new Date().toISOString()}],
+      news: [],
+      sources: []
+    };
+
+    function getUser() {
+      return JSON.parse(sessionStorage.getItem("m3tm_user") || "null");
+    }
+
+    function setUser(u) {
+      sessionStorage.setItem("m3tm_user", JSON.stringify(u));
+    }
+
+    function getData() {
+      return JSON.parse(localStorage.getItem(KEY) || JSON.stringify(DEFAULT));
+    }
+
+    function saveData(d) {
+      localStorage.setItem(KEY, JSON.stringify(d));
+    }
+
+    function createPins() {
+      document.getElementById("pinInput").innerHTML = Array(4).fill()
+        .map((_, i) => `<input type="number" class="pin-digit" min="0" max="9" onkeyup="handlePin(event, ${i})" />`)
+        .join("");
+    }
+
+    function handlePin(e, i) {
+      if (e.target.value.length > 1) e.target.value = e.target.value[0];
+      if (e.target.value && i < 3) document.querySelectorAll(".pin-digit")[i+1].focus();
+      if (e.key === "Enter") verifyPin();
+    }
+
+    function getPin() {
+      return Array.from(document.querySelectorAll(".pin-digit")).map(x => x.value).join("");
+    }
+
+    function verifyPin() {
+      const pin = getPin();
+      if (pin.length !== 4) {
+        document.getElementById("errorMsg").textContent = "أدخل 4 أرقام";
+        return;
+      }
+      const data = getData();
+      const user = data.users.find(u => u.pin === pin);
+      if (user) {
+        setUser(user);
+        showApp();
+        load();
+      } else {
+        document.getElementById("errorMsg").textContent = "PIN غير صحيح";
+        createPins();
+      }
+    }
+
+    function toggleSetup() {
+      const s = document.getElementById("setupPanel");
+      s.style.display = s.style.display === "none" ? "block" : "none";
+    }
+
+    function createUser() {
+      const admin = document.getElementById("adminPin").value;
+      const pin = document.getElementById("newUserPin").value;
+      const name = document.getElementById("newUserName").value;
+      const data = getData();
+      if (data.admin_pin !== admin) {
+        alert("رقم الإدارة خاطئ");
+        return;
+      }
+      if (!pin || !name) {
+        alert("أملأ جميع الحقول");
+        return;
+      }
+      data.users.push({id:Date.now(),pin,name,date:new Date().toISOString()});
+      saveData(data);
+      alert("تم إنشاء المستخدم!");
+      toggleSetup();
+      document.getElementById("adminPin").value = "";
+      document.getElementById("newUserPin").value = "";
+      document.getElementById("newUserName").value = "";
+    }
+
+    function showApp() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("mainApp").classList.remove("hidden");
+    }
+
+    function logout() {
+      sessionStorage.removeItem("m3tm_user");
+      document.getElementById("mainApp").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+      createPins();
+    }
+
+    function switchPanel(id, btn) {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+
+    function saveNews(e) {
+      e.preventDefault();
+      const [title, source, url, cat, imp] = Array.from(e.target.children).slice(0,5).map(x => x.children[1].value);
+      const data = getData();
+      data.news.unshift({id:Date.now(),title,source,url,cat,imp,date:new Date().toISOString()});
+      saveData(data);
+      e.target.reset();
+      load();
+      switchPanel("news", document.querySelectorAll(".nav button")[0]);
+    }
+
+    function deleteNews(id) {
+      if (!confirm("حذف؟")) return;
+      const data = getData();
+      data.news = data.news.filter(n => n.id !== id);
+      saveData(data);
+      load();
+    }
+
+    function addUserFromPanel() {
+      const pin = document.getElementById("userPin").value;
+      const name = document.getElementById("userName2").value;
+      if (!pin || !name) {
+        alert("أملأ الحقول");
+        return;
+      }
+      const data = getData();
+      data.users.push({id:Date.now(),pin,name,date:new Date().toISOString()});
+      saveData(data);
+      document.getElementById("userPin").value = "";
+      document.getElementById("userName2").value = "";
+      load();
+    }
+
+    function deleteUser(id) {
+      if (!confirm("حذف؟")) return;
+      const data = getData();
+      data.users = data.users.filter(u => u.id !== id);
+      saveData(data);
+      load();
+    }
+
+    function load() {
+      const user = getUser();
+      const data = getData();
+      const isAdmin = user.pin === data.admin_pin;
+
+      document.getElementById("userName").textContent = user.name;
+      document.getElementById("userRole").textContent = isAdmin ? "مسؤول" : "مشاهد";
+      document.getElementById("adminBtn").style.display = isAdmin ? "block" : "none";
+      document.getElementById("addBtn").style.display = isAdmin ? "block" : "none";
+      document.getElementById("users").style.display = isAdmin ? "block" : "none";
+
+      document.getElementById("newsCount").textContent = data.news.length;
+      document.getElementById("sourcesCount").textContent = data.sources.length;
+      document.getElementById("usersCount").textContent = data.users.length;
+
+      const newsList = document.getElementById("newsList");
+      if (data.news.length) {
+        document.getElementById("newsEmpty").style.display = "none";
+        newsList.innerHTML = data.news.map(n => `
+          <div class="card">
+            <h3>${n.title}</h3>
+            <p><strong>المصدر:</strong> ${n.source}</p>
+            <p><strong>التصنيف:</strong> ${n.cat}</p>
+            <p><strong>الأهمية:</strong> ${n.imp}</p>
+            ${n.url ? `<p><a href="${n.url}" target="_blank" style="color:var(--blue2);">🔗 الرابط</a></p>` : ""}
+            <p style="font-size:11px; color:var(--muted);">${new Date(n.date).toLocaleString("ar-SA")}</p>
+            ${isAdmin ? `<div class="card-actions"><button class="delete" onclick="deleteNews(${n.id})">حذف</button></div>` : ""}
+          </div>
+        `).join("");
+      } else {
+        document.getElementById("newsEmpty").style.display = "block";
+        newsList.innerHTML = "";
+      }
+
+      if (isAdmin) {
+        document.getElementById("usersList").innerHTML = data.users.map(u => `
+          <div class="card">
+            <h3>${u.name}</h3>
+            <p><strong>PIN:</strong> ${u.pin}</p>
+            <p style="font-size:11px; color:var(--muted);">${new Date(u.date).toLocaleDateString("ar-SA")}</p>
+            <div class="card-actions"><button class="delete" onclick="deleteUser(${u.id})">حذف</button></div>
+          </div>
+        `).join("");
+      }
+    }
+
+    const glow = document.getElementById("cursorGlow");
+    let gx = 0, gy = 0, tx = 0, ty = 0;
+    window.addEventListener("pointermove", e => {tx=e.clientX;ty=e.clientY;glow.style.opacity="1"});
+    window.addEventListener("pointerleave", () => glow.style.opacity="0");
+    function animGlow() {
+      gx+=(tx-gx)*0.12;
+      gy+=(ty-gy)*0.12;
+      glow.style.left=gx+"px";
+      glow.style.top=gy+"px";
+      requestAnimationFrame(animGlow);
+    }
+    animGlow();
+
+    createPins();
+  </script>
+</body>
+</html>
