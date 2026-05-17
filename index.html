@@ -514,22 +514,15 @@
   <div class="login-screen active" id="loginScreen">
     <div class="login-box">
       <h1>🔐 M3TM RASED</h1>
-      <p>نظام الرصد الآمن - أدخل رقم PIN</p>
-      
-      <div class="pin-input" id="pinInput"></div>
-      
-      <button class="btn btn-primary" onclick="verifyPin()">دخول</button>
-      <button class="btn btn-secondary" onclick="toggleAdminSetup()">إعداد رقم سري جديد</button>
-      
+      <p>نظام الرصد الآمن - أدخل رمز الدخول للمستخدم (1447)</p>
+      <input id="userCodeInput" type="password" inputmode="numeric" maxlength="4" class="form-group" style="width:100%;padding:14px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.35);color:var(--text);font-size:22px;text-align:center;letter-spacing:6px" placeholder="••••" />
+      <button class="btn btn-primary" onclick="verifyUserAccess()">دخول النظام</button>
+      <button class="btn btn-secondary" onclick="toggleAdminLogin()" style="margin-top:8px;font-size:13px;opacity:.9">دخول المسؤول</button>
       <div id="adminSetup" style="display: none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
-        <p>أدخل رقم السري الرئيسي (Admin PIN) أولاً:</p>
-        <input type="password" id="adminPinInput" placeholder="123987" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text);" />
-        <input type="text" id="newPinInput" placeholder="PIN جديد" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); margin-top: 10px;" />
-        <input type="text" id="newPinName" placeholder="اسم المستخدم" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); margin-top: 10px;" />
-        <button class="btn btn-success" onclick="addNewUser()" style="background: linear-gradient(180deg, #51cf66, #2f9e44); color: white; margin-top: 10px;">إضافة مستخدم</button>
-        <button class="btn btn-secondary" onclick="toggleAdminSetup()" style="margin-top: 10px;">إلغاء</button>
+        <p>تحقق دخول المسؤول:</p>
+        <input type="password" id="adminPinInput" placeholder="Admin PIN" class="form-group" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text);" />
+        <button class="btn btn-secondary" onclick="verifyAdminAccess()">دخول لوحة التحكم</button>
       </div>
-
       <div class="error-msg" id="errorMsg"></div>
     </div>
   </div>
@@ -542,6 +535,7 @@
         <p style="margin: 5px 0 0; color: var(--muted); font-size: 14px;">واجهة الرصد والأخبار الآمنة</p>
       </div>
       <div class="topbar-actions">
+        <small id="syncStatus" style="color:var(--muted)">آخر تحديث للمصادر: -</small>
         <button class="theme-toggle" onclick="toggleTheme()" title="تبديل المظهر (Light/Dark)">
           <span id="themeIcon">🌙</span>
         </button>
@@ -752,99 +746,35 @@
     }
 
     // ===== LOGIN LOGIC =====
-    function createPinInputs() {
-      const container = document.getElementById("pinInput");
-      container.innerHTML = "";
-      for (let i = 0; i < 6; i++) {
-        const input = document.createElement("input");
-        input.type = "number";
-        input.class = "pin-digit";
-        input.maxLength = 1;
-        input.className = "pin-digit";
-        input.min = 0;
-        input.max = 9;
-        input.placeholder = "•";
-        input.addEventListener("input", (e) => {
-          e.target.value = e.target.value.slice(0, 1);
-          if (e.target.value && i < 5) {
-            container.children[i + 1].focus();
-          }
-        });
-        input.addEventListener("keydown", (e) => {
-          if (e.key === "Backspace" && !e.target.value && i > 0) {
-            container.children[i - 1].focus();
-          }
-          if (e.key === "Enter") verifyPin();
-        });
-        container.appendChild(input);
-      }
-    }
+    const USER_ACCESS_CODE = "1447";
+    const AUTO_REFRESH_MS = 15 * 60 * 1000;
 
-    function getPin() {
-      const inputs = document.querySelectorAll(".pin-digit");
-      return Array.from(inputs).map(i => i.value).join("");
-    }
-
-    function verifyPin() {
-      const pin = getPin();
-      if (pin.length !== 6) {
-        showError("أدخل 6 أرقام");
+    function verifyUserAccess() {
+      const code = document.getElementById("userCodeInput").value.trim();
+      if (code !== USER_ACCESS_CODE) {
+        showError("رمز الدخول غير صحيح");
         return;
       }
-
-      const data = getData();
-      const user = data.users.find(u => u.pin === pin);
-
-      if (user) {
-        setCurrentUser(user);
-        showApp();
-        loadData();
-      } else {
-        showError("رقم PIN غير صحيح");
-        createPinInputs();
-      }
+      setCurrentUser({ id: 0, pin: USER_ACCESS_CODE, name: "مستخدم", role: "viewer" });
+      showApp();
+      loadData();
     }
 
-    function toggleAdminSetup() {
+    function toggleAdminLogin() {
       const setup = document.getElementById("adminSetup");
       setup.style.display = setup.style.display === "none" ? "block" : "none";
     }
 
-    function addNewUser() {
-      const adminPin = document.getElementById("adminPinInput").value;
-      const newPin = document.getElementById("newPinInput").value;
-      const name = document.getElementById("newPinName").value;
-
-      if (!adminPin || !newPin || !name) {
-        alert("أملأ جميع الحقول");
-        return;
-      }
-
+    function verifyAdminAccess() {
+      const adminPin = document.getElementById("adminPinInput").value.trim();
       const data = getData();
-      if (data.admin_pin !== adminPin) {
-        alert("رقم السري الرئيسي غير صحيح");
+      if (adminPin !== data.admin_pin) {
+        showError("بيانات المسؤول غير صحيحة");
         return;
       }
-
-      if (data.users.some(u => u.pin === newPin)) {
-        alert("هذا الرقم موجود بالفعل");
-        return;
-      }
-
-      data.users.push({
-        id: Math.max(...data.users.map(u => u.id), 0) + 1,
-        pin: newPin,
-        name: name,
-        role: "viewer",
-        created: new Date().toISOString()
-      });
-
-      saveData(data);
-      alert("تم إضافة المستخدم بنجاح!");
-      toggleAdminSetup();
-      document.getElementById("adminPinInput").value = "";
-      document.getElementById("newPinInput").value = "";
-      document.getElementById("newPinName").value = "";
+      setCurrentUser({ id: -1, pin: data.admin_pin, name: "Admin", role: "admin" });
+      showApp();
+      loadData();
     }
 
     function showError(msg) {
@@ -862,10 +792,27 @@
       sessionStorage.removeItem("m3tm_user");
       document.getElementById("mainApp").style.display = "none";
       document.getElementById("loginScreen").classList.add("active");
-      createPinInputs();
       document.getElementById("errorMsg").textContent = "";
+      document.getElementById("userCodeInput").value = "";
+      document.getElementById("adminPinInput").value = "";
     }
 
+    async function importSourcesFromFile() {
+      try {
+        const res = await fetch("./sources.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const incoming = await res.json();
+        const data = getData();
+        data.sources = incoming.map(s => ({ ...s, date: new Date().toISOString() }));
+        data.lastSourcesSync = new Date().toISOString();
+        saveData(data);
+        const status = document.getElementById("syncStatus");
+        if (status) status.textContent = `آخر تحديث للمصادر: ${new Date(data.lastSourcesSync).toLocaleString("ar-SA")}`;
+        if (getCurrentUser()) loadData();
+      } catch (e) {
+        console.error("sources sync failed", e);
+      }
+    }
     // ===== APP LOGIC =====
     function openPanel(id, button) {
       document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
@@ -957,7 +904,7 @@
       document.getElementById("userRole").textContent = user.role === "viewer" ? "مشاهد" : "مسؤول";
 
       // Show admin nav if user is admin
-      const isAdmin = user.pin === data.admin_pin;
+      const isAdmin = user.role === "admin";
       document.getElementById("adminNav").style.display = isAdmin ? "block" : "none";
       document.getElementById("addNewsNav").style.display = isAdmin ? "block" : "none";
       document.getElementById("addSourceNav").style.display = isAdmin ? "block" : "none";
@@ -1075,7 +1022,7 @@
       const container = document.getElementById("newsList");
       const user = getCurrentUser();
       const data = getData();
-      const isAdmin = user.pin === data.admin_pin;
+      const isAdmin = user.role === "admin";
 
       if (newsList.length === 0) {
         document.getElementById("newsEmpty").style.display = "block";
@@ -1122,7 +1069,7 @@
       const container = document.getElementById("sourcesList");
       const user = getCurrentUser();
       const data = getData();
-      const isAdmin = user.pin === data.admin_pin;
+      const isAdmin = user.role === "admin";
 
       if (sourcesList.length === 0) {
         document.getElementById("sourcesEmpty").style.display = "block";
@@ -1172,8 +1119,15 @@
       form.style.display = form.style.display === "none" ? "block" : "none";
     }
 
-    createPinInputs();
     initTheme();
+    importSourcesFromFile();
+    setInterval(importSourcesFromFile, AUTO_REFRESH_MS);
+
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      showApp();
+      loadData();
+    }
   </script>
 </body>
 </html>
