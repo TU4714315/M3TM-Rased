@@ -1,33 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" role="img" aria-label="stylized world map">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" role="img" aria-label="lightweight recognizable world map">
   <defs>
-    <linearGradient id="land" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#8ecbff" stop-opacity="0.38"/>
-      <stop offset="1" stop-color="#2f7dff" stop-opacity="0.18"/>
+    <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8dcff" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#5aaeff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#1d6dff" stop-opacity="0.14"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
   <rect width="1600" height="800" fill="none"/>
-  <g stroke="#9bd0ff" stroke-opacity="0.13" stroke-width="1">
+  <g stroke="#7fbfff" stroke-opacity="0.12" stroke-width="1">
     <path d="M0 400H1600M800 0V800"/>
-    <path d="M0 250H1600M0 550H1600M300 0V800M600 0V800M1000 0V800M1300 0V800"/>
+    <path d="M0 250H1600M0 550H1600M200 0V800M400 0V800M600 0V800M1000 0V800M1200 0V800M1400 0V800"/>
   </g>
-  <g fill="url(#land)" stroke="#9bd0ff" stroke-opacity="0.42" stroke-width="2" filter="url(#glow)">
-    <path d="M115 238c42-63 126-107 219-104 71 2 105 31 160 34 54 3 98-19 133 12 25 23 18 59-12 79-31 20-70 15-91 43-20 27 8 62-18 88-25 25-67 3-96 19-34 18-14 70-54 88-34 15-71-16-93-44-33-41-43-91-80-113-47-28-101-32-94-75 2-10 10-20 26-27z"/>
-    <path d="M418 464c42 5 85 42 83 92-1 48-43 78-55 121-9 33 5 67-18 76-32 13-85-50-92-118-8-79 31-180 82-171z"/>
-    <path d="M470 100c60-35 137-30 176 7 31 30 5 72-52 81-66 10-154-9-166-43-5-14 10-30 42-45z"/>
-    <path d="M720 218c55-58 159-67 237-38 51 19 88 18 137-5 71-34 171-24 234 26 64 51 58 120-10 142-51 17-100-9-147 14-55 28-36 103-93 122-49 16-76-36-133-28-62 9-85 73-139 56-54-18-43-91-83-126-51-45-55-106-3-163z"/>
-    <path d="M795 410c81 8 132 59 140 129 7 62-37 122-90 128-43 5-56-45-96-74-40-28-93-18-108-62-18-54 75-129 154-121z"/>
-    <path d="M1092 394c58-20 126-5 167 36 37 37 36 88-4 113-43 27-103 2-141 26-29 18-29 58-63 63-52 8-96-79-75-146 15-48 56-72 116-92z"/>
-    <path d="M1278 480c65-38 166-16 190 47 22 58-32 115-106 121-75 6-155-39-160-96-3-31 23-54 76-72z"/>
-    <path d="M1335 252c55-11 108 11 123 49 12 32-12 63-53 70-45 8-96-10-114-43-18-34-5-66 44-76z"/>
+  <g fill="url(#land)" stroke="#a8d5ff" stroke-opacity="0.48" stroke-width="2" filter="url(#softGlow)">
+    <!-- Greenland -->
+    <path d="M445 90 L505 62 L585 78 L638 120 L616 166 L542 185 L468 165 L425 128 Z"/>
+    <!-- North America -->
+    <path d="M96 260 L135 218 L196 178 L278 150 L360 160 L445 182 L522 206 L585 245 L568 288 L514 302 L492 343 L438 348 L396 326 L342 345 L286 325 L245 358 L217 416 L173 395 L162 337 L112 317 Z"/>
+    <path d="M70 250 L112 205 L176 190 L162 226 L118 258 Z"/>
+    <path d="M500 326 L545 338 L572 374 L530 389 L485 365 Z"/>
+    <!-- Central America -->
+    <path d="M360 360 L420 365 L472 392 L510 430 L476 444 L422 414 L370 404 Z"/>
+    <!-- South America -->
+    <path d="M455 432 L507 464 L538 538 L514 615 L475 704 L435 735 L404 686 L386 610 L350 548 L367 482 Z"/>
+    <!-- Europe -->
+    <path d="M700 230 L738 205 L786 210 L824 236 L842 274 L806 302 L750 290 L706 268 Z"/>
+    <path d="M665 246 L705 228 L722 262 L690 285 L655 270 Z"/>
+    <path d="M778 290 L823 300 L840 332 L800 338 L760 318 Z"/>
+    <!-- Africa -->
+    <path d="M760 315 L836 302 L900 340 L932 420 L910 520 L850 645 L782 595 L735 500 L716 402 Z"/>
+    <path d="M846 636 L882 668 L864 704 L824 678 Z"/>
+    <!-- Middle East / Arabia -->
+    <path d="M890 324 L954 330 L994 374 L966 424 L906 400 Z"/>
+    <!-- Asia -->
+    <path d="M848 225 L944 190 L1085 178 L1230 205 L1370 264 L1446 334 L1394 392 L1290 378 L1205 420 L1112 392 L1045 440 L968 404 L1002 352 L934 318 L862 306 Z"/>
+    <path d="M1010 425 L1060 455 L1040 530 L990 502 Z"/>
+    <path d="M1112 405 L1178 452 L1155 520 L1096 480 Z"/>
+    <path d="M1265 382 L1335 420 L1310 480 L1238 452 Z"/>
+    <!-- Japan / islands -->
+    <path d="M1410 302 L1432 322 L1420 350 L1398 335 Z"/>
+    <path d="M1455 345 L1474 365 L1460 392 L1440 372 Z"/>
+    <!-- Southeast Asia islands -->
+    <path d="M1188 522 L1256 535 L1320 560 L1288 590 L1210 570 Z"/>
+    <path d="M1078 535 L1112 552 L1088 575 L1048 560 Z"/>
+    <!-- Australia -->
+    <path d="M1220 580 L1310 548 L1400 588 L1380 650 L1288 682 L1198 640 Z"/>
+    <path d="M1436 670 L1475 675 L1460 710 L1428 704 Z"/>
   </g>
-  <g fill="#d8ecff" fill-opacity="0.70">
-    <circle cx="292" cy="295" r="2"/><circle cx="386" cy="315" r="2"/><circle cx="453" cy="366" r="2"/><circle cx="421" cy="534" r="2"/>
-    <circle cx="762" cy="285" r="2"/><circle cx="831" cy="300" r="2"/><circle cx="883" cy="338" r="2"/><circle cx="940" cy="355" r="2"/>
-    <circle cx="915" cy="475" r="2"/><circle cx="1018" cy="424" r="2"/><circle cx="1118" cy="332" r="2"/><circle cx="1192" cy="300" r="2"/>
-    <circle cx="1328" cy="552" r="2"/><circle cx="1400" cy="525" r="2"/>
+  <g fill="#d9efff" fill-opacity="0.72">
+    <circle cx="238" cy="260" r="2"/><circle cx="322" cy="284" r="2"/><circle cx="420" cy="304" r="2"/><circle cx="500" cy="372" r="2"/>
+    <circle cx="462" cy="565" r="2"/><circle cx="775" cy="254" r="2"/><circle cx="828" cy="370" r="2"/><circle cx="850" cy="475" r="2"/>
+    <circle cx="950" cy="336" r="2"/><circle cx="1032" cy="265" r="2"/><circle cx="1138" cy="285" r="2"/><circle cx="1248" cy="332" r="2"/>
+    <circle cx="1348" cy="595" r="2"/><circle cx="1415" cy="332" r="2"/>
   </g>
 </svg>
