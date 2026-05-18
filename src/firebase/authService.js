@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-import { firebaseConfig } from './firebaseConfig.js';
+import { firebaseConfig } from './firebaseConfig.js?v=auth-keyfix-20260518';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
