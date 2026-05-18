@@ -2,7 +2,7 @@
 // Firebase Web apiKey is public by design. Protection is enforced by Firestore rules and Auth.
 window.M3TM_FIREBASE_ENABLED = true;
 window.M3TM_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDKUJxruoP7KjO12UEH3Uwlnn0TqB6xnPQ",
+  apiKey: "AIzaSyDKUJxruoP7KjOl2UEH3Uwlnn0TqB6xnPQ",
   authDomain: "m3tm-rased-07246627-7b0bf.firebaseapp.com",
   projectId: "m3tm-rased-07246627-7b0bf",
   storageBucket: "m3tm-rased-07246627-7b0bf.firebasestorage.app",
