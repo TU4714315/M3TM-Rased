@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.token.email in [
+        'moooom001@hotmail.com',
+        'mohammed.e.z.m2@gmail.com'
+      ];
+    }
+
+    match /news/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isOwner();
+    }
+
+    match /sources/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isOwner();
+    }
+
+    match /settings/{docId} {
+      allow read, write: if isOwner();
+    }
+  }
+}
