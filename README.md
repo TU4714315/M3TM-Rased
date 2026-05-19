@@ -197,6 +197,27 @@ git push
 
 ✅ النشر يتم خلال دقيقة واحدة
 
+## 🧪 اختبار محلي + 🚀 نشر Firebase Hosting
+
+### اختبار محلي (نفس مجلد النشر الحقيقي `public/`)
+
+```bash
+cd public
+python3 -m http.server 8080
+# افتح: http://localhost:8080
+```
+
+### نشر يدوي إلى Firebase Hosting
+
+```bash
+firebase deploy --only hosting
+```
+
+### النشر التلقائي عبر GitHub Actions
+
+- يتم النشر تلقائيًا إلى Firebase Hosting عند `push` إلى الفرع `main`.
+- ملف الـ workflow: `.github/workflows/firebase-hosting-merge.yml`
+
 ## 🛡️ معايير الأمان
 
 ### ✅ ما هو آمن
