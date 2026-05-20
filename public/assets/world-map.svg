@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" role="img" aria-label="lightweight recognizable world map">
+  <defs>
+    <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8dcff" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#5aaeff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#1d6dff" stop-opacity="0.14"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1600" height="800" fill="none"/>
+  <g stroke="#7fbfff" stroke-opacity="0.12" stroke-width="1">
+    <path d="M0 400H1600M800 0V800"/>
+    <path d="M0 250H1600M0 550H1600M200 0V800M400 0V800M600 0V800M1000 0V800M1200 0V800M1400 0V800"/>
+  </g>
+  <g fill="url(#land)" stroke="#a8d5ff" stroke-opacity="0.48" stroke-width="2" filter="url(#softGlow)">
+    <!-- Greenland -->
+    <path d="M445 90 L505 62 L585 78 L638 120 L616 166 L542 185 L468 165 L425 128 Z"/>
+    <!-- North America -->
+    <path d="M96 260 L135 218 L196 178 L278 150 L360 160 L445 182 L522 206 L585 245 L568 288 L514 302 L492 343 L438 348 L396 326 L342 345 L286 325 L245 358 L217 416 L173 395 L162 337 L112 317 Z"/>
+    <path d="M70 250 L112 205 L176 190 L162 226 L118 258 Z"/>
+    <path d="M500 326 L545 338 L572 374 L530 389 L485 365 Z"/>
+    <!-- Central America -->
+    <path d="M360 360 L420 365 L472 392 L510 430 L476 444 L422 414 L370 404 Z"/>
+    <!-- South America -->
+    <path d="M455 432 L507 464 L538 538 L514 615 L475 704 L435 735 L404 686 L386 610 L350 548 L367 482 Z"/>
+    <!-- Europe -->
+    <path d="M700 230 L738 205 L786 210 L824 236 L842 274 L806 302 L750 290 L706 268 Z"/>
+    <path d="M665 246 L705 228 L722 262 L690 285 L655 270 Z"/>
+    <path d="M778 290 L823 300 L840 332 L800 338 L760 318 Z"/>
+    <!-- Africa -->
+    <path d="M760 315 L836 302 L900 340 L932 420 L910 520 L850 645 L782 595 L735 500 L716 402 Z"/>
+    <path d="M846 636 L882 668 L864 704 L824 678 Z"/>
+    <!-- Middle East / Arabia -->
+    <path d="M890 324 L954 330 L994 374 L966 424 L906 400 Z"/>
+    <!-- Asia -->
+    <path d="M848 225 L944 190 L1085 178 L1230 205 L1370 264 L1446 334 L1394 392 L1290 378 L1205 420 L1112 392 L1045 440 L968 404 L1002 352 L934 318 L862 306 Z"/>
+    <path d="M1010 425 L1060 455 L1040 530 L990 502 Z"/>
+    <path d="M1112 405 L1178 452 L1155 520 L1096 480 Z"/>
+    <path d="M1265 382 L1335 420 L1310 480 L1238 452 Z"/>
+    <!-- Japan / islands -->
+    <path d="M1410 302 L1432 322 L1420 350 L1398 335 Z"/>
+    <path d="M1455 345 L1474 365 L1460 392 L1440 372 Z"/>
+    <!-- Southeast Asia islands -->
+    <path d="M1188 522 L1256 535 L1320 560 L1288 590 L1210 570 Z"/>
+    <path d="M1078 535 L1112 552 L1088 575 L1048 560 Z"/>
+    <!-- Australia -->
+    <path d="M1220 580 L1310 548 L1400 588 L1380 650 L1288 682 L1198 640 Z"/>
+    <path d="M1436 670 L1475 675 L1460 710 L1428 704 Z"/>
+  </g>
+  <g fill="#d9efff" fill-opacity="0.72">
+    <circle cx="238" cy="260" r="2"/><circle cx="322" cy="284" r="2"/><circle cx="420" cy="304" r="2"/><circle cx="500" cy="372" r="2"/>
+    <circle cx="462" cy="565" r="2"/><circle cx="775" cy="254" r="2"/><circle cx="828" cy="370" r="2"/><circle cx="850" cy="475" r="2"/>
+    <circle cx="950" cy="336" r="2"/><circle cx="1032" cy="265" r="2"/><circle cx="1138" cy="285" r="2"/><circle cx="1248" cy="332" r="2"/>
+    <circle cx="1348" cy="595" r="2"/><circle cx="1415" cy="332" r="2"/>
+  </g>
+</svg>
