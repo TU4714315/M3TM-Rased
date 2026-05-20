@@ -136,7 +136,7 @@ async function loginUser() {
     if (!auth) throw new Error('Firebase Auth غير مهيأ بعد.');
     const { email, password } = getCredentials();
     if (!email || !password) {
-      setStatus('الرجاء إدخا�� البريد الإلكتروني وكلمة المرور.', 'error');
+      setStatus('الرجاء إدخال البريد الإلكتروني وكلمة المرور.', 'error');
       return;
     }
     setStatus('جاري تسجيل الدخول...');
