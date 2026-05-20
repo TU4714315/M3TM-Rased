@@ -18,6 +18,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate Hosting publish root
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          firebase_config = json.loads((root / "firebase.json").read_text())
+          hosting_public = firebase_config.get("hosting", {}).get("public")
+
+          if hosting_public != "public":
+              raise SystemExit(f'firebase.json hosting.public must be "public", got: {hosting_public!r}')
+
+          index_file = root / "public" / "index.html"
+          if not index_file.is_file():
+              raise SystemExit("public/index.html is required for Firebase Hosting deploys.")
+          PY
+
       - name: Deploy Firebase Hosting live
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

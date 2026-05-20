@@ -11,7 +11,6 @@
 | النوع | الرابط |
 |------|--------|
 | 🎯 **الدومين الأساسي** | https://m3tm-rased.ml |
-| 🔗 **GitHub Pages** | https://tu4714315.github.io/M3TM-Rased/ |
 | 📦 **المستودع** | https://github.com/TU4714315/M3TM-Rased |
 
 ---
@@ -167,7 +166,7 @@
 }
 ```
 
-## 🌐 النشر على GitHub Pages + الدومين المجاني
+## 🌐 النشر على Firebase Hosting + الدومين المجاني
 
 ### ✅ التثبيت التلقائي (محدث)
 
@@ -187,7 +186,7 @@
 
 ## 🔄 نشر التحديثات التلقائية
 
-GitHub Actions ينشر تلقائياً عند كل push:
+GitHub Actions ينشر تلقائياً إلى Firebase Hosting عند كل `push` إلى الفرع `main`:
 
 ```bash
 git add .
@@ -195,7 +194,7 @@ git commit -m "تحديث الموقع"
 git push
 ```
 
-✅ النشر يتم خلال دقيقة واحدة
+✅ النشر يتم خلال دقيقة واحدة تقريبًا بعد دمج التغييرات في `main`
 
 ## 🧪 اختبار محلي + 🚀 نشر Firebase Hosting
 
@@ -204,7 +203,7 @@ git push
 ```bash
 cd public
 python3 -m http.server 8080
-# افتح: http://localhost:8080
+# افتح: http://127.0.0.1:8080/index.html
 ```
 
 ### نشر يدوي إلى Firebase Hosting
@@ -287,7 +286,7 @@ M3TM-Rased/
 ├── STATUS.md               ← حالة المشروع
 ├── .gitignore
 ├── .github/workflows/
-│   └── deploy.yml          ← CI/CD تلقائي
+│   └── firebase-hosting-merge.yml  ← CI/CD لنشر Firebase Hosting
 └── CNAME                   ← إعداد الدومين المخصص
 ```
 
