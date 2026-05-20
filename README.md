@@ -213,6 +213,18 @@ python3 -m http.server 8080
 firebase deploy --only hosting
 ```
 
+### إعداد Firebase Authentication (Google + Email/Password)
+
+1. افتح الملف:
+   - `public/assets/js/auth.js`
+2. الصق مفاتيح مشروعك داخل الكائن:
+   - `const firebaseConfig = { ... }`
+3. من Firebase Console فعّل:
+   - `Authentication > Sign-in method > Google`
+   - `Authentication > Sign-in method > Email/Password`
+4. أضف الدومين في:
+   - `Authentication > Settings > Authorized domains`
+
 ### النشر التلقائي عبر GitHub Actions
 
 - يتم النشر تلقائيًا إلى Firebase Hosting عند `push` إلى الفرع `main`.
