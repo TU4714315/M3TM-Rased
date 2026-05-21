@@ -18,6 +18,56 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate production hosting files
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          firebase_json = root / "firebase.json"
+          if not firebase_json.is_file():
+              raise SystemExit("firebase.json is missing")
+
+          cfg = json.loads(firebase_json.read_text(encoding="utf-8"))
+          hosting_public = cfg.get("hosting", {}).get("public")
+          if hosting_public != "public":
+              raise SystemExit(f'firebase.json hosting.public must be "public", got: {hosting_public!r}')
+
+          required = [
+              "public/index.html",
+              "public/assets/js/auth.js",
+              "public/firebase-config.js",
+          ]
+
+          for item in required:
+              if not (root / item).is_file():
+                  raise SystemExit(f"Required production file missing: {item}")
+
+          index = (root / "public/index.html").read_text(encoding="utf-8")
+          firebase_pos = index.find('src="firebase-config.js"')
+          auth_pos = index.find('src="assets/js/auth.js"')
+
+          if firebase_pos == -1:
+              raise SystemExit("public/index.html must load firebase-config.js")
+          if auth_pos == -1:
+              raise SystemExit("public/index.html must load assets/js/auth.js")
+          if firebase_pos > auth_pos:
+              raise SystemExit("firebase-config.js must load before assets/js/auth.js")
+
+          for path in root.glob("public/**/*.js"):
+              text = path.read_text(encoding="utf-8", errors="replace")
+              if "\ufffd" in text:
+                  raise SystemExit(f"Corrupted replacement character found in {path}")
+
+          for path in root.glob("public/**/*.html"):
+              text = path.read_text(encoding="utf-8", errors="replace")
+              if "\ufffd" in text:
+                  raise SystemExit(f"Corrupted replacement character found in {path}")
+
+          print("Production validation passed.")
+          PY
+
       - name: Deploy Firebase Hosting live
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

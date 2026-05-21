@@ -57,6 +57,16 @@ function setStatus(message, type = 'info') {
   elements.status.style.color = 'var(--muted)';
 }
 
+function setAccessBadge(icon, text) {
+  if (!elements.accessBadge) return;
+  elements.accessBadge.textContent = '';
+  elements.accessBadge.append(document.createTextNode(`${icon} ${text} `));
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  elements.accessBadge.append(hint);
+  return hint;
+}
+
 function getCredentials() {
   const email = elements.emailInput?.value.trim() || '';
   const password = elements.passwordInput?.value || '';
@@ -136,7 +146,7 @@ async function loginUser() {
     if (!auth) throw new Error('Firebase Auth غير مهيأ بعد.');
     const { email, password } = getCredentials();
     if (!email || !password) {
-      setStatus('الرجاء إدخا�� البريد الإلكتروني وكلمة المرور.', 'error');
+      setStatus('الرجاء إدخال البريد الإلكتروني وكلمة المرور.', 'error');
       return;
     }
     setStatus('جاري تسجيل الدخول...');
@@ -170,15 +180,12 @@ if (auth) {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       setStatus(`جلسة نشطة: ${user.email || user.uid}`, 'success');
-      if (elements.accessBadge) {
-        elements.accessBadge.innerHTML = `✅ جلسة موثقة <span class="hint">${user.email || user.uid}</span>`;
-      }
+      const hint = setAccessBadge('✅', 'جلسة موثقة');
+      if (hint) hint.textContent = user.email || user.uid;
       return;
     }
     setStatus('لا توجد جلسة نشطة. يمكنك تسجيل الدخول عبر Google أو البريد.', 'info');
-    if (elements.accessBadge) {
-      elements.accessBadge.innerHTML = '🔐 يتطلب تسجيل دخول <span class="hint">Firebase Auth</span>';
-    }
+    const hint = setAccessBadge('🔐', 'يتطلب تسجيل دخول');
+    if (hint) hint.textContent = 'Firebase Auth';
   });
 }
-

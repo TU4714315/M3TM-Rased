@@ -197,38 +197,39 @@ git push
 
 ✅ النشر يتم خلال دقيقة واحدة
 
-## 🧪 اختبار محلي + 🚀 نشر Firebase Hosting
+## 🧪 Production Operation (Firebase Hosting)
 
-### اختبار محلي (نفس مجلد النشر الحقيقي `public/`)
+- **Production entrypoint:** `public/index.html`
+- **Firebase Hosting public directory:** `public`
+
+### اختبار محلي
 
 ```bash
 cd public
 python3 -m http.server 8080
-# افتح: http://localhost:8080
+# افتح: http://127.0.0.1:8080/index.html
 ```
 
-### نشر يدوي إلى Firebase Hosting
+### نشر يدوي
 
 ```bash
 firebase deploy --only hosting
 ```
 
-### إعداد Firebase Authentication (Google + Email/Password)
+### النشر التلقائي
 
-1. افتح الملف:
-   - `public/assets/js/auth.js`
-2. الصق مفاتيح مشروعك داخل الكائن:
-   - `const firebaseConfig = { ... }`
-3. من Firebase Console فعّل:
-   - `Authentication > Sign-in method > Google`
-   - `Authentication > Sign-in method > Email/Password`
-4. أضف الدومين في:
-   - `Authentication > Settings > Authorized domains`
-
-### النشر التلقائي عبر GitHub Actions
-
-- يتم النشر تلقائيًا إلى Firebase Hosting عند `push` إلى الفرع `main`.
+- `push` إلى `main` يشغّل نشر Firebase Hosting تلقائيًا.
 - ملف الـ workflow: `.github/workflows/firebase-hosting-merge.yml`
+
+### GitHub Secret المطلوب
+
+- `FIREBASE_SERVICE_ACCOUNT_M3TM_RASED`
+
+### Manual Firebase Console checks
+
+- Enable Email/Password provider
+- Enable Google provider
+- Add authorized domains
 
 ## 🛡️ معايير الأمان
 
