@@ -13,7 +13,7 @@ import {
 
 // ضع إعدادات Firebase الخاصة بمشروعك هنا (يمكنك لصق المفاتيح مباشرة في هذا الكائن).
 const firebaseConfig = {
-  apiKey: "AIzaSyDKUjXruoP7Kj0i2UEH3UwInnoTqB6xnPQ",
+  apiKey: "AIzaSyDKUJxruoP7KjOl2UEH3Uw1nn0TqB6xnPQ",
   authDomain: "m3tm-rased-07246627-7b0bf.firebaseapp.com",
   projectId: "m3tm-rased-07246627-7b0bf",
   storageBucket: "m3tm-rased-07246627-7b0bf.firebasestorage.app",
