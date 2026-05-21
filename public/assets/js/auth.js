@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
@@ -79,6 +81,20 @@ function getCredentials() {
   return { email, password };
 }
 
+function createGoogleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
+function shouldFallbackToRedirect(error) {
+  return [
+    'auth/popup-blocked',
+    'auth/cancelled-popup-request',
+    'auth/operation-not-supported-in-this-environment'
+  ].includes(error?.code);
+}
+
 function requireAuthElements() {
   if (!missingElements.length) return true;
   const message = `تعذر تهيئة واجهة المصادقة. العناصر التالية مفقودة: ${missingElements.join(', ')}`;
@@ -114,8 +130,10 @@ function mapAuthError(error) {
   const code = error?.code || 'unknown';
   const messages = {
     'auth/operation-not-allowed': 'طريقة تسجيل الدخول غير مفعلة من Firebase Console.',
-    'auth/popup-blocked': 'المتصفح منع نافذة Google. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.',
+    'auth/popup-blocked': 'المتصفح منع نافذة Google. سيتم استخدام التحويل المباشر بدل النافذة المنبثقة.',
     'auth/popup-closed-by-user': 'تم إغلاق نافذة Google قبل إتمام تسجيل الدخول.',
+    'auth/cancelled-popup-request': 'تم إلغاء نافذة تسجيل الدخول. أعد المحاولة.',
+    'auth/operation-not-supported-in-this-environment': 'بيئة المتصفح لا تدعم نافذة Google. سيتم استخدام التحويل المباشر.',
     'auth/email-already-in-use': 'هذا البريد مسجل مسبقًا. استخدم تسجيل الدخول.',
     'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
     'auth/weak-password': 'كلمة المرور ضعيفة. استخدم 6 أحرف على الأقل.',
@@ -123,22 +141,45 @@ function mapAuthError(error) {
     'auth/user-not-found': 'لا يوجد حساب بهذا البريد.',
     'auth/wrong-password': 'كلمة المرور غير صحيحة.',
     'auth/network-request-failed': 'فشل الاتصال بالشبكة. تحقق من الإنترنت ثم أعد المحاولة.',
-    'auth/unauthorized-domain': 'الدومين غير مصرح به في Firebase Auth > Authorized domains.'
+    'auth/unauthorized-domain': 'الدومين غير مصرح به في Firebase Auth > Authorized domains. أضف دومين الموقع من Firebase Console.'
   };
   return messages[code] || error?.message || 'حدث خطأ غير متوقع أثناء المصادقة.';
+}
+
+async function handleRedirectResult() {
+  if (!auth) return;
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      console.log('[M3TM Auth] Google redirect login success:', result.user?.email);
+      setStatus(`تم تسجيل الدخول عبر Google: ${result.user?.email || result.user?.uid}`, 'success');
+    }
+  } catch (error) {
+    console.error('[M3TM Auth] Google redirect result failed:', error);
+    setStatus(mapAuthError(error), 'error');
+  }
 }
 
 async function loginWithGoogle() {
   try {
     if (!auth) throw new Error('Firebase Auth غير مهيأ بعد.');
     setStatus('جاري تسجيل الدخول عبر Google...');
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, createGoogleProvider());
     console.log('[M3TM Auth] Google login success:', result.user?.email);
     setStatus(`تم تسجيل الدخول عبر Google: ${result.user?.email || result.user?.uid}`, 'success');
   } catch (error) {
     console.error('[M3TM Auth] Google login failed:', error);
+    if (shouldFallbackToRedirect(error) && auth) {
+      setStatus('تعذر فتح نافذة Google. سيتم تحويلك إلى صفحة Google لإكمال الدخول...', 'info');
+      try {
+        await signInWithRedirect(auth, createGoogleProvider());
+        return;
+      } catch (redirectError) {
+        console.error('[M3TM Auth] Google redirect login failed:', redirectError);
+        setStatus(mapAuthError(redirectError), 'error');
+        return;
+      }
+    }
     setStatus(mapAuthError(error), 'error');
   }
 }
@@ -199,6 +240,7 @@ if (hasRequiredElements) {
 }
 
 if (auth) {
+  handleRedirectResult();
   onAuthStateChanged(auth, (user) => {
     if (user) {
       setStatus(`جلسة نشطة: ${user.email || user.uid}`, 'success');
