@@ -745,6 +745,12 @@
       sessionStorage.setItem("m3tm_user", JSON.stringify(user));
     }
 
+    function hasAdminPrivileges(user = getCurrentUser()) {
+      if (!user || user.role !== "admin") return false;
+      const data = getData();
+      return user.pin === data.admin_pin;
+    }
+
     // ===== LOGIN LOGIC =====
     const USER_ACCESS_CODE = "1447";
     const AUTO_REFRESH_MS = 15 * 60 * 1000;
@@ -824,6 +830,10 @@
 
     function addNews(e) {
       e.preventDefault();
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
 
       const title = document.getElementById("newsTitle").value;
       const source = document.getElementById("newsSource").value;
@@ -851,6 +861,10 @@
     }
 
     function deleteNews(id) {
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
       if (!confirm("هل تريد حذف هذا الخبر؟")) return;
       const data = getData();
       data.news = data.news.filter(n => n.id !== id);
@@ -859,6 +873,10 @@
     }
 
     function addUserAdmin() {
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
       const pin = document.getElementById("userPin").value;
       const name = document.getElementById("userName2").value;
 
@@ -888,6 +906,10 @@
     }
 
     function deleteUser(id) {
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
       if (!confirm("هل تريد حذف هذا المستخدم؟")) return;
       const data = getData();
       data.users = data.users.filter(u => u.id !== id);
@@ -898,13 +920,13 @@
     function loadData() {
       const user = getCurrentUser();
       const data = getData();
+      const isAdmin = hasAdminPrivileges(user);
 
       // Update user info
       document.getElementById("userName").textContent = user.name;
-      document.getElementById("userRole").textContent = user.role === "viewer" ? "مشاهد" : "مسؤول";
+      document.getElementById("userRole").textContent = isAdmin ? "مسؤول" : "مشاهد";
 
       // Show admin nav if user is admin
-      const isAdmin = user.role === "admin";
       document.getElementById("adminNav").style.display = isAdmin ? "block" : "none";
       document.getElementById("addNewsNav").style.display = isAdmin ? "block" : "none";
       document.getElementById("addSourceNav").style.display = isAdmin ? "block" : "none";
@@ -940,6 +962,10 @@
     }
 
     function deleteSource(i) {
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
       if (!confirm("هل تريد حذف هذا المصدر؟")) return;
       const data = getData();
       data.sources.splice(i, 1);
@@ -1021,8 +1047,7 @@
     function renderNews(newsList) {
       const container = document.getElementById("newsList");
       const user = getCurrentUser();
-      const data = getData();
-      const isAdmin = user.role === "admin";
+      const isAdmin = hasAdminPrivileges(user);
 
       if (newsList.length === 0) {
         document.getElementById("newsEmpty").style.display = "block";
@@ -1068,8 +1093,7 @@
     function renderSources(sourcesList) {
       const container = document.getElementById("sourcesList");
       const user = getCurrentUser();
-      const data = getData();
-      const isAdmin = user.role === "admin";
+      const isAdmin = hasAdminPrivileges(user);
 
       if (sourcesList.length === 0) {
         document.getElementById("sourcesEmpty").style.display = "block";
@@ -1089,6 +1113,10 @@
     }
 
     function addSource() {
+      if (!hasAdminPrivileges()) {
+        showError("هذه العملية تتطلب صلاحيات المسؤول");
+        return;
+      }
       const name = document.getElementById("sourceName").value.trim();
       const url = document.getElementById("sourceUrl").value.trim();
       const desc = document.getElementById("sourceDesc").value.trim();
