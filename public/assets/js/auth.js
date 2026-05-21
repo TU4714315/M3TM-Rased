@@ -13,7 +13,7 @@ import {
 
 // ضع إعدادات Firebase الخاصة بمشروعك هنا (يمكنك لصق المفاتيح مباشرة في هذا الكائن).
 const firebaseConfig = {
-  apiKey: "AIzaSyDKUjXruoP7Kj0i2UEH3UwInnoTqB6xnPQ",
+  apiKey: "AIzaSyDKUJxruoP7KjOl2UEH3Uw1nn0TqB6xnPQ",
   authDomain: "m3tm-rased-07246627-7b0bf.firebaseapp.com",
   projectId: "m3tm-rased-07246627-7b0bf",
   storageBucket: "m3tm-rased-07246627-7b0bf.firebasestorage.app",
@@ -22,7 +22,7 @@ const firebaseConfig = {
 };
 
 const runtimeConfig = window.M3TM_FIREBASE_CONFIG || firebaseConfig;
-const configRequiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
+const configRequiredKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
 const placeholderPrefix = 'PASTE_YOUR_';
 const missingConfig = configRequiredKeys.filter((key) => {
   const value = String(runtimeConfig?.[key] || '');
@@ -39,6 +39,18 @@ const elements = {
   status: document.getElementById('authStatus'),
   accessBadge: document.querySelector('.access-badge')
 };
+
+const requiredElementIds = [
+  'authGoogleBtn',
+  'authLoginBtn',
+  'authRegisterBtn',
+  'authSignoutBtn',
+  'authEmailInput',
+  'authPasswordInput',
+  'authStatus'
+];
+
+const missingElements = requiredElementIds.filter((id) => !document.getElementById(id));
 
 function setStatus(message, type = 'info') {
   if (!elements.status) return;
@@ -73,6 +85,14 @@ function getCredentials() {
   return { email, password };
 }
 
+function requireAuthElements() {
+  if (!missingElements.length) return true;
+  const message = `تعذر تهيئة واجهة المصادقة. العناصر التالية مفقودة: ${missingElements.join(', ')}`;
+  setStatus(message, 'error');
+  console.error('[M3TM Auth] Missing required UI elements:', missingElements);
+  return false;
+}
+
 function requireFirebaseConfig() {
   if (!missingConfig.length) return true;
   const message = `إعداد Firebase غير مكتمل. أكمل القيم التالية: ${missingConfig.join(', ')}`;
@@ -82,12 +102,18 @@ function requireFirebaseConfig() {
 }
 
 let auth = null;
+const hasRequiredElements = requireAuthElements();
 if (requireFirebaseConfig()) {
-  const app = getApps().length ? getApps()[0] : initializeApp(runtimeConfig);
-  auth = getAuth(app);
-  setPersistence(auth, browserLocalPersistence).catch((error) => {
-    console.error('[M3TM Auth] Persistence warning:', error);
-  });
+  try {
+    const app = getApps().length ? getApps()[0] : initializeApp(runtimeConfig);
+    auth = getAuth(app);
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error('[M3TM Auth] Persistence warning:', error);
+    });
+  } catch (error) {
+    console.error('[M3TM Auth] Firebase initialization failed:', error);
+    setStatus('تعذر تهيئة Firebase Auth. تحقق من الإعدادات وحاول مرة أخرى.', 'error');
+  }
 }
 
 function mapAuthError(error) {
@@ -171,10 +197,12 @@ async function logoutUser() {
   }
 }
 
-if (elements.googleBtn) elements.googleBtn.addEventListener('click', loginWithGoogle);
-if (elements.registerBtn) elements.registerBtn.addEventListener('click', registerUser);
-if (elements.loginBtn) elements.loginBtn.addEventListener('click', loginUser);
-if (elements.signoutBtn) elements.signoutBtn.addEventListener('click', logoutUser);
+if (hasRequiredElements) {
+  if (elements.googleBtn) elements.googleBtn.addEventListener('click', loginWithGoogle);
+  if (elements.registerBtn) elements.registerBtn.addEventListener('click', registerUser);
+  if (elements.loginBtn) elements.loginBtn.addEventListener('click', loginUser);
+  if (elements.signoutBtn) elements.signoutBtn.addEventListener('click', logoutUser);
+}
 
 if (auth) {
   onAuthStateChanged(auth, (user) => {

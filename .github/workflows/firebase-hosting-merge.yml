@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate production hosting files
+      - name: Validate production hosting configuration
         run: |
           python3 - <<'PY'
           import json
