@@ -11,7 +11,7 @@
 | النوع | الرابط |
 |------|--------|
 | 🎯 **الدومين الأساسي** | https://m3tm-rased.ml |
-| 🔗 **GitHub Pages** | https://tu4714315.github.io/M3TM-Rased/ |
+| 🔗 **Firebase Hosting** | https://m3tm-rased-07246627-7b0bf.web.app |
 | 📦 **المستودع** | https://github.com/TU4714315/M3TM-Rased |
 
 ---
@@ -66,7 +66,7 @@
 
 أو:
 ```
-🔗 https://tu4714315.github.io/M3TM-Rased/
+🔗 https://m3tm-rased-07246627-7b0bf.web.app
 ```
 
 ### 2️⃣ تسجيل الدخول
@@ -167,7 +167,7 @@
 }
 ```
 
-## 🌐 النشر على GitHub Pages + الدومين المجاني
+## 🌐 النشر الإنتاجي على Firebase Hosting
 
 ### ✅ التثبيت التلقائي (محدث)
 
@@ -187,7 +187,7 @@
 
 ## 🔄 نشر التحديثات التلقائية
 
-GitHub Actions ينشر تلقائياً عند كل push:
+GitHub Actions ينشر تلقائياً إلى Firebase Hosting عند كل push إلى `main`:
 
 ```bash
 git add .
@@ -215,10 +215,10 @@ firebase deploy --only hosting
 
 ### إعداد Firebase Authentication (Google + Email/Password)
 
-1. افتح الملف:
-   - `public/assets/js/auth.js`
-2. الصق مفاتيح مشروعك داخل الكائن:
-   - `const firebaseConfig = { ... }`
+1. ملف الإدخال الإنتاجي:
+   - `public/index.html`
+2. إعدادات Firebase العامة (runtime):
+   - `public/firebase-config.js`
 3. من Firebase Console فعّل:
    - `Authentication > Sign-in method > Google`
    - `Authentication > Sign-in method > Email/Password`
@@ -229,6 +229,17 @@ firebase deploy --only hosting
 
 - يتم النشر تلقائيًا إلى Firebase Hosting عند `push` إلى الفرع `main`.
 - ملف الـ workflow: `.github/workflows/firebase-hosting-merge.yml`
+- السر المطلوب في GitHub Actions:
+  - `FIREBASE_SERVICE_ACCOUNT_M3TM_RASED`
+- مسار النشر الإنتاجي:
+  - `firebase.json` → `hosting.public = public`
+  - Entry point: `public/index.html`
+
+### فحوصات يدوية بعد النشر (Firebase Console)
+
+- تأكد من تفعيل Email/Password provider.
+- تأكد من تفعيل Google provider.
+- أضف النطاقات المصرح بها في Authorized domains.
 
 ## 🛡️ معايير الأمان
 
