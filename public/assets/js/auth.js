@@ -11,15 +11,9 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 
-// ضع إعدادات Firebase الخاصة بمشروعك هنا (يمكنك لصق المفاتيح مباشرة في هذا الكائن).
-const firebaseConfig = {
-  apiKey: "AIzaSyDKUJxruoP7KjOl2UEH3Uw1nn0TqB6xnPQ",
-  authDomain: "m3tm-rased-07246627-7b0bf.firebaseapp.com",
-  projectId: "m3tm-rased-07246627-7b0bf",
-  storageBucket: "m3tm-rased-07246627-7b0bf.firebasestorage.app",
-  messagingSenderId: "1023709519997",
-  appId: "1:1023709519997:web:95b4059c2e9845d47ed114"
-};
+// Runtime Firebase web config is loaded from public/firebase-config.js before this module.
+// Keep this fallback empty so service-account secrets are never embedded in this file.
+const firebaseConfig = {};
 
 const runtimeConfig = window.M3TM_FIREBASE_CONFIG || firebaseConfig;
 const configRequiredKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
@@ -69,6 +63,16 @@ function setStatus(message, type = 'info') {
   elements.status.style.color = 'var(--muted)';
 }
 
+function setAccessBadge(icon, text) {
+  if (!elements.accessBadge) return null;
+  elements.accessBadge.textContent = '';
+  elements.accessBadge.append(document.createTextNode(`${icon} ${text} `));
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  elements.accessBadge.append(hint);
+  return hint;
+}
+
 function getCredentials() {
   const email = elements.emailInput?.value.trim() || '';
   const password = elements.passwordInput?.value || '';
@@ -87,7 +91,7 @@ function requireFirebaseConfig() {
   if (!missingConfig.length) return true;
   const message = `إعداد Firebase غير مكتمل. أكمل القيم التالية: ${missingConfig.join(', ')}`;
   setStatus(message, 'error');
-  console.error('[M3TM Auth] Incomplete Firebase config:', { missingConfig, runtimeConfig });
+  console.error('[M3TM Auth] Incomplete Firebase config:', { missingConfig });
   return false;
 }
 
@@ -198,14 +202,12 @@ if (auth) {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       setStatus(`جلسة نشطة: ${user.email || user.uid}`, 'success');
-      if (elements.accessBadge) {
-        elements.accessBadge.innerHTML = `✅ جلسة موثقة <span class="hint">${user.email || user.uid}</span>`;
-      }
+      const hint = setAccessBadge('✅', 'جلسة موثقة');
+      if (hint) hint.textContent = user.email || user.uid;
       return;
     }
     setStatus('لا توجد جلسة نشطة. يمكنك تسجيل الدخول عبر Google أو البريد.', 'info');
-    if (elements.accessBadge) {
-      elements.accessBadge.innerHTML = '🔐 يتطلب تسجيل دخول <span class="hint">Firebase Auth</span>';
-    }
+    const hint = setAccessBadge('🔐', 'يتطلب تسجيل دخول');
+    if (hint) hint.textContent = 'Firebase Auth';
   });
 }
