@@ -25,10 +25,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "21"
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run test:rules
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
