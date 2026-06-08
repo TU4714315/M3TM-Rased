@@ -66,6 +66,15 @@ export interface SyncRun {
   finishedAt: Timestamp | Date;
 }
 
+export interface AppSettings {
+  id: 'general';
+  platformName: string;
+  defaultCategory: string;
+  feedSyncEnabled: boolean;
+  updatedAt: Timestamp | Date;
+  updatedBy: string;
+}
+
 export interface LegacyExport {
   news?: unknown[];
   sources?: unknown[];

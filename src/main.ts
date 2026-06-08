@@ -20,15 +20,26 @@ import {
   subscribeInvites,
   subscribeNews,
   subscribeSources,
+  subscribeSettings,
   subscribeSyncRuns,
   subscribeUsers,
   updateUserAccess,
+  saveSettings,
 } from './lib/data';
 import { importLegacyData, previewLegacyImport, type ImportPreview } from './lib/migration';
 import { canManageContent, canManageUsers } from './lib/permissions';
-import type { Invite, NewsItem, Role, Source, SyncRun, UserProfile } from './types';
+import { buildExportPayload } from './lib/export';
+import type {
+  AppSettings,
+  Invite,
+  NewsItem,
+  Role,
+  Source,
+  SyncRun,
+  UserProfile,
+} from './types';
 
-type Route = 'dashboard' | 'news' | 'sources' | 'users' | 'import';
+type Route = 'dashboard' | 'news' | 'sources' | 'users' | 'import' | 'settings';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 if (!appRoot) throw new Error('App root is missing.');
@@ -42,6 +53,7 @@ const state: {
   users: UserProfile[];
   invites: Invite[];
   syncRuns: SyncRun[];
+  settings: AppSettings | null;
   importPreview: ImportPreview | null;
   error: string;
   loading: boolean;
@@ -54,6 +66,7 @@ const state: {
   users: [],
   invites: [],
   syncRuns: [],
+  settings: null,
   importPreview: null,
   error: '',
   loading: true,
@@ -75,7 +88,7 @@ function escapeStatic(value: string): string {
 
 function routeFromHash(): Route {
   const route = location.hash.replace(/^#\/?/, '') as Route;
-  return ['dashboard', 'news', 'sources', 'users', 'import'].includes(route)
+  return ['dashboard', 'news', 'sources', 'users', 'import', 'settings'].includes(route)
     ? route
     : 'dashboard';
 }
@@ -127,6 +140,10 @@ function subscribeToData(): void {
     }, onError),
     subscribeSources((items) => {
       state.sources = items;
+      renderCurrentView();
+    }, onError),
+    subscribeSettings((settings) => {
+      state.settings = settings;
       renderCurrentView();
     }, onError),
   );
@@ -249,7 +266,7 @@ function renderShell(): void {
   const profile = state.session.profile;
   if (!profile) return;
   const adminLinks = canManageUsers(profile.role)
-    ? `${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}`
+    ? `${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
     : '';
   app.innerHTML = `
     <div class="app-shell">
@@ -278,7 +295,10 @@ function renderShell(): void {
             <p class="system-label">M3TM RASED</p>
             <h1 id="page-title">لوحة الرصد</h1>
           </div>
-          <div class="live-status"><span></span> اتصال مباشر</div>
+          <div class="topbar-actions">
+            <button class="button secondary compact" id="export-button" type="button">تصدير JSON</button>
+            <div class="live-status"><span></span> اتصال مباشر</div>
+          </div>
         </header>
         <div id="global-message" class="notice" hidden></div>
         <main id="view" tabindex="-1"></main>
@@ -286,9 +306,22 @@ function renderShell(): void {
     </div>
   `;
   document.querySelector('#logout-button')?.addEventListener('click', () => void logout());
+  document.querySelector('#export-button')?.addEventListener('click', exportData);
   document.querySelector('#menu-button')?.addEventListener('click', () => {
     document.querySelector('.sidebar')?.classList.toggle('open');
   });
+}
+
+function exportData(): void {
+  const payload = buildExportPayload(state.news, state.sources);
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `m3tm-rased-export-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function make(tag: string, className = '', text = ''): HTMLElement {
@@ -378,7 +411,7 @@ function renderNews(view: HTMLElement): void {
               <label>العنوان<input name="title" required maxlength="180" /></label>
               <label>المصدر<input name="sourceName" required maxlength="120" /></label>
               <label>الرابط<input name="url" type="url" /></label>
-              <label>التصنيف<input name="category" value="عام" maxlength="80" /></label>
+              <label>التصنيف<input name="category" value="${escapeStatic(state.settings?.defaultCategory || 'عام')}" maxlength="80" /></label>
               <label>الأهمية<select name="importance"><option value="low">منخفض</option><option value="medium">متوسط</option><option value="high">عالٍ</option><option value="critical">حرج</option></select></label>
               <label class="wide">الملخص<textarea name="summary" rows="3" maxlength="2000"></textarea></label>
               <button class="button primary compact" type="submit">حفظ الخبر</button>
@@ -480,7 +513,7 @@ function renderSources(view: HTMLElement): void {
               <label>اسم المصدر<input name="name" required maxlength="140" /></label>
               <label>رابط Feed<input name="feedUrl" type="url" required /></label>
               <label>رابط الموقع<input name="siteUrl" type="url" /></label>
-              <label>التصنيف<input name="category" value="عام" maxlength="80" /></label>
+              <label>التصنيف<input name="category" value="${escapeStatic(state.settings?.defaultCategory || 'عام')}" maxlength="80" /></label>
               <label>الحالة<select name="status"><option value="active">نشط</option><option value="paused">متوقف</option></select></label>
               <button class="button primary compact" type="submit">حفظ المصدر</button>
               <button class="button secondary compact" id="source-cancel" type="button">إلغاء التعديل</button>
@@ -721,6 +754,52 @@ function renderImport(view: HTMLElement): void {
   });
 }
 
+function renderSettings(view: HTMLElement): void {
+  const profile = state.session.profile;
+  if (!profile || !canManageUsers(profile.role)) {
+    view.append(make('p', 'notice error', 'هذه الصفحة متاحة للمدير فقط.'));
+    return;
+  }
+  const settings = state.settings;
+  view.innerHTML = `
+    <section class="page-heading">
+      <div><p class="eyebrow">تهيئة المنصة</p><h2>الإعدادات العامة</h2></div>
+    </section>
+    <section class="panel settings-panel">
+      <form id="settings-form" class="form-grid">
+        <label>اسم المنصة
+          <input name="platformName" value="${escapeStatic(settings?.platformName || 'M3TM RASED')}" maxlength="80" required />
+        </label>
+        <label>التصنيف الافتراضي
+          <input name="defaultCategory" value="${escapeStatic(settings?.defaultCategory || 'عام')}" maxlength="80" required />
+        </label>
+        <label class="toggle wide">
+          <input name="feedSyncEnabled" type="checkbox" ${settings?.feedSyncEnabled !== false ? 'checked' : ''} />
+          <span>تمكين مزامنة RSS وAtom المجدولة</span>
+        </label>
+        <p class="muted wide">عند تعطيل المزامنة، تنتهي مهمة GitHub Actions بنجاح دون جلب المصادر أو تعديلها.</p>
+        <button class="button primary compact" type="submit">حفظ الإعدادات</button>
+      </form>
+    </section>
+  `;
+  view.querySelector<HTMLFormElement>('#settings-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formElement = event.currentTarget as HTMLFormElement;
+    const values = new FormData(formElement);
+    try {
+      await saveSettings({
+        platformName: String(values.get('platformName') ?? 'M3TM RASED'),
+        defaultCategory: String(values.get('defaultCategory') ?? 'عام'),
+        feedSyncEnabled: values.get('feedSyncEnabled') === 'on',
+        updatedBy: profile.id,
+      });
+      setMessage('تم حفظ الإعدادات.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
+
 function renderCurrentView(): void {
   const view = document.querySelector<HTMLElement>('#view');
   const title = document.querySelector<HTMLElement>('#page-title');
@@ -736,6 +815,7 @@ function renderCurrentView(): void {
     sources: 'المصادر',
     users: 'المستخدمون',
     import: 'الاستيراد',
+    settings: 'الإعدادات',
   };
   title.textContent = titles[state.route];
   if (state.error) {
@@ -747,6 +827,7 @@ function renderCurrentView(): void {
   if (state.route === 'sources') renderSources(view);
   if (state.route === 'users') renderUsers(view);
   if (state.route === 'import') renderImport(view);
+  if (state.route === 'settings') renderSettings(view);
   view.focus({ preventScroll: true });
 }
 

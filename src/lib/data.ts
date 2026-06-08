@@ -24,6 +24,7 @@ import type {
   Source,
   SyncRun,
   UserProfile,
+  AppSettings,
 } from '../types';
 
 type WithId<T> = T & { id: string };
@@ -83,6 +84,22 @@ export function subscribeSyncRuns(
   return onSnapshot(
     query(collection(db, 'syncRuns'), orderBy('startedAt', 'desc'), limit(30)),
     (snapshot) => success(mapSnapshot<Omit<SyncRun, 'id'>>(snapshot)),
+    failure,
+  );
+}
+
+export function subscribeSettings(
+  success: (settings: AppSettings | null) => void,
+  failure: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'settings', 'general'),
+    (snapshot) =>
+      success(
+        snapshot.exists()
+          ? ({ id: 'general', ...(snapshot.data() as Omit<AppSettings, 'id'>) } as AppSettings)
+          : null,
+      ),
     failure,
   );
 }
@@ -156,6 +173,22 @@ export async function updateUserAccess(id: string, role: Role, active: boolean):
   await updateDoc(doc(db, 'users', id), { role, active, updatedAt: serverTimestamp() });
 }
 
+export async function saveSettings(
+  input: Pick<AppSettings, 'platformName' | 'defaultCategory' | 'feedSyncEnabled' | 'updatedBy'>,
+): Promise<void> {
+  await setDoc(
+    doc(db, 'settings', 'general'),
+    {
+      platformName: cleanText(input.platformName, 80),
+      defaultCategory: cleanText(input.defaultCategory, 80),
+      feedSyncEnabled: input.feedSyncEnabled,
+      updatedAt: serverTimestamp(),
+      updatedBy: input.updatedBy,
+    },
+    { merge: true },
+  );
+}
+
 export async function requestSync(requestedBy: string): Promise<void> {
   await addDoc(collection(db, 'syncRequests'), {
     requestedBy,
@@ -170,4 +203,3 @@ export const importanceLabels: Record<Importance, string> = {
   high: 'عالٍ',
   critical: 'حرج',
 };
-

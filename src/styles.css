@@ -450,6 +450,17 @@ textarea {
   font-size: 0.78rem;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-inline-start: auto;
+}
+
+.topbar-actions .live-status {
+  margin-inline-start: 0;
+}
+
 .live-status span {
   width: 8px;
   height: 8px;
@@ -783,6 +794,17 @@ td select {
   margin: 22px 0;
 }
 
+.toggle {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-content: start;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+}
+
 .import-preview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -911,6 +933,10 @@ td select {
 
   .live-status {
     font-size: 0;
+  }
+
+  .topbar-actions {
+    gap: 7px;
   }
 
   .metrics {

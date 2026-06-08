@@ -131,4 +131,32 @@ describe('Firestore rules', () => {
       }),
     );
   });
+
+  it('restricts general settings to administrators', async () => {
+    const userFirestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertFails(
+      setDoc(doc(userFirestore, 'settings', 'general'), {
+        platformName: 'Blocked',
+        defaultCategory: 'عام',
+        feedSyncEnabled: true,
+        updatedAt: new Date(),
+        updatedBy: 'user-1',
+      }),
+    );
+
+    const adminFirestore = environment
+      .authenticatedContext('bootstrap-admin', { email: 'moooom001@hotmail.com' })
+      .firestore();
+    await assertSucceeds(
+      setDoc(doc(adminFirestore, 'settings', 'general'), {
+        platformName: 'M3TM RASED',
+        defaultCategory: 'عام',
+        feedSyncEnabled: true,
+        updatedAt: new Date(),
+        updatedBy: 'bootstrap-admin',
+      }),
+    );
+  });
 });

@@ -107,6 +107,11 @@ async function completePendingRequests() {
 }
 
 async function main() {
+  const settingsSnapshot = await db.collection('settings').doc('general').get();
+  if (settingsSnapshot.exists && settingsSnapshot.data().feedSyncEnabled === false) {
+    console.log(JSON.stringify({ syncedAt: new Date().toISOString(), skipped: 'disabled' }, null, 2));
+    return;
+  }
   const sources = await db.collection('sources').where('status', 'in', ['active', 'error']).get();
   const results = [];
   for (const source of sources.docs) results.push(await syncSource(source));
