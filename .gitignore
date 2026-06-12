@@ -15,6 +15,14 @@ firebase-debug.log
 
 # Node
 node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*.tsbuildinfo
 npm-debug.log
 yarn-error.log
 

@@ -1,0 +1,40 @@
+{
+  "name": "m3tm-rased",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "test:e2e": "playwright test",
+    "sync:feeds": "node scripts/sync-feeds.mjs"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5",
+    "firebase": "^12.14.0",
+    "firebase-admin": "^13.10.0",
+    "ipaddr.js": "^2.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.15.29",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "firebase-tools": "^15.19.1",
+    "globals": "^16.2.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.33.0",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

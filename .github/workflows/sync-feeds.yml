@@ -1,0 +1,29 @@
+name: Synchronize RSS and Atom feeds
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feed-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Fetch active feeds
+        run: npm run sync:feeds
+        env:
+          FIREBASE_SERVICE_ACCOUNT_M3TM_RASED: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}

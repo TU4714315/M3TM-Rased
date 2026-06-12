@@ -2,28 +2,167 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email != null;
     }
 
-    function isOwner() {
+    function bootstrapAdmin() {
       return signedIn() && request.auth.token.email in [
         'moooom001@hotmail.com',
         'mohammed.e.z.m2@gmail.com'
       ];
     }
 
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(profilePath())
+        && get(profilePath()).data.active == true;
+    }
+
+    function role() {
+      return bootstrapAdmin()
+        ? 'admin'
+        : (hasActiveProfile() ? get(profilePath()).data.role : 'none');
+    }
+
+    function authorized() {
+      return bootstrapAdmin() || hasActiveProfile();
+    }
+
+    function admin() {
+      return role() == 'admin';
+    }
+
+    function contentManager() {
+      return role() in ['admin', 'manager'];
+    }
+
+    function validRole(value) {
+      return value in ['admin', 'manager', 'user'];
+    }
+
+    function validNews() {
+      return request.resource.data.keys().hasAll([
+        'title', 'sourceName', 'url', 'category', 'importance',
+        'summary', 'fingerprint', 'publishedAt', 'createdAt', 'createdBy'
+      ])
+      && request.resource.data.title is string
+      && request.resource.data.title.size() > 0
+      && request.resource.data.title.size() <= 180
+      && request.resource.data.sourceName is string
+      && request.resource.data.sourceName.size() <= 120
+      && request.resource.data.url is string
+      && request.resource.data.url.size() <= 2048
+      && request.resource.data.category is string
+      && request.resource.data.category.size() <= 80
+      && request.resource.data.summary is string
+      && request.resource.data.summary.size() <= 2000
+      && request.resource.data.importance in ['low', 'medium', 'high', 'critical'];
+    }
+
+    function validSource() {
+      return request.resource.data.keys().hasAll([
+        'name', 'feedUrl', 'siteUrl', 'category', 'status',
+        'createdAt', 'updatedAt', 'createdBy'
+      ])
+      && request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.name.size() <= 140
+      && request.resource.data.feedUrl is string
+      && request.resource.data.feedUrl.size() > 0
+      && request.resource.data.feedUrl.size() <= 2048
+      && request.resource.data.siteUrl is string
+      && request.resource.data.siteUrl.size() <= 2048
+      && request.resource.data.category is string
+      && request.resource.data.category.size() <= 80
+      && request.resource.data.status in ['active', 'paused', 'error'];
+    }
+
+    function validSettings() {
+      return request.resource.data.keys().hasAll([
+        'platformName', 'defaultCategory', 'feedSyncEnabled', 'updatedAt', 'updatedBy'
+      ])
+      && request.resource.data.platformName is string
+      && request.resource.data.platformName.size() > 0
+      && request.resource.data.platformName.size() <= 80
+      && request.resource.data.defaultCategory is string
+      && request.resource.data.defaultCategory.size() > 0
+      && request.resource.data.defaultCategory.size() <= 80
+      && request.resource.data.feedSyncEnabled is bool
+      && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (uid == request.auth.uid || admin());
+      allow list: if admin();
+      allow create: if signedIn()
+        && uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.active == true
+        && validRole(request.resource.data.role)
+        && (
+          (bootstrapAdmin() && request.resource.data.role == 'admin')
+          ||
+          (
+            exists(/databases/$(database)/documents/invites/$(request.auth.token.email))
+            && get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.status == 'pending'
+            && request.resource.data.role ==
+              get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.role
+          )
+        );
+      allow update, delete: if admin();
+    }
+
+    match /invites/{email} {
+      allow get: if signedIn() && (email == request.auth.token.email || admin());
+      allow list, create, delete: if admin();
+      allow update: if admin()
+        || (
+          signedIn()
+          && email == request.auth.token.email
+          && resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'acceptedAt'])
+          && request.resource.data.status == 'accepted'
+        );
+    }
+
     match /news/{docId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner();
+      allow read: if authorized();
+      allow create, update: if contentManager() && validNews();
+      allow delete: if contentManager();
     }
 
     match /sources/{docId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner();
+      allow read: if authorized();
+      allow create, update: if contentManager() && validSource();
+      allow delete: if contentManager();
+    }
+
+    match /syncRuns/{docId} {
+      allow read: if contentManager();
+      allow write: if false;
+    }
+
+    match /syncRequests/{docId} {
+      allow read: if contentManager();
+      allow create: if contentManager()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
     }
 
     match /settings/{docId} {
-      allow read, write: if isOwner();
+      allow read: if authorized();
+      allow create, update: if admin() && docId == 'general' && validSettings();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
