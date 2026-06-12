@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('renders an accessible invitation-only login screen', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveTitle(/M3TM/);
   await expect(page.getByRole('heading', { name: /M3.*RASED/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'المتابعة عبر Google' })).toBeVisible();
