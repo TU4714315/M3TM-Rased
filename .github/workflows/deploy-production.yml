@@ -67,11 +67,17 @@ jobs:
           name: production-dist
           path: dist
       - name: Authenticate Firebase deployment
+        id: firebase-auth
         uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
-      - name: Deploy Firestore rules and indexes
-        run: npx firebase deploy --only firestore:rules,firestore:indexes --project m3tm-rased-07246627-7b0bf --non-interactive
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/firebase
+      - name: Deploy Firestore rules
+        run: node scripts/deploy-firestore-rules.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.firebase-auth.outputs.access_token }}
       - uses: FirebaseExtended/action-hosting-deploy@v0.10.0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -81,7 +87,7 @@ jobs:
 
   github-pages:
     needs: validate
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
