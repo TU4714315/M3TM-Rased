@@ -1,0 +1,41 @@
+name: Configure Firebase custom domain
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Prepare domains or only report their current state
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - prepare
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-domain-configuration
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Authenticate Firebase administration
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+      - name: Configure and inspect domains
+        run: node scripts/configure-firebase-domains.mjs "${{ inputs.mode }}"
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+          FIREBASE_SITE_ID: m3tm-rased-07246627-7b0bf
+          PRIMARY_DOMAIN: m3tm.app
