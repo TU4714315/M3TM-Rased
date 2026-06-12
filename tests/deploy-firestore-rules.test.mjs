@@ -1,5 +1,9 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { deployFirestoreRules } from '../scripts/deploy-firestore-rules.mjs';
+import {
+  deployFirestoreRules,
+  exchangeServiceAccountCredentials,
+} from '../scripts/deploy-firestore-rules.mjs';
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -9,6 +13,34 @@ function jsonResponse(body, status = 200) {
 }
 
 describe('Firestore Rules API deployment', () => {
+  it('exchanges a signed service-account JWT for a short-lived token', async () => {
+    const { privateKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+    });
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ access_token: 'token' }));
+
+    await expect(
+      exchangeServiceAccountCredentials({
+        credentials: {
+          client_email: 'firebase@example.iam.gserviceaccount.com',
+          private_key: privateKey,
+          token_uri: 'https://oauth2.googleapis.com/token',
+        },
+        fetchImpl,
+        now: 1_700_000_000_000,
+      }),
+    ).resolves.toBe('token');
+
+    const request = fetchImpl.mock.calls[0];
+    expect(request[0]).toBe('https://oauth2.googleapis.com/token');
+    expect(String(request[1].body)).toContain(
+      'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer',
+    );
+    expect(String(request[1].body)).not.toContain(privateKey);
+  });
+
   it('updates the existing Firestore release', async () => {
     const fetchImpl = vi
       .fn()

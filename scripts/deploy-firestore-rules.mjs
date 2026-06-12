@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createSign } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
@@ -24,6 +25,48 @@ async function apiRequest(url, accessToken, options = {}, fetchImpl = fetch) {
     throw new Error(message);
   }
   return body;
+}
+
+function encodeJson(value) {
+  return Buffer.from(JSON.stringify(value)).toString('base64url');
+}
+
+export async function exchangeServiceAccountCredentials({
+  credentials,
+  fetchImpl = fetch,
+  now = Date.now(),
+}) {
+  if (!credentials?.client_email || !credentials?.private_key) {
+    throw new Error('Service account credentials are incomplete.');
+  }
+
+  const tokenUri = credentials.token_uri || 'https://oauth2.googleapis.com/token';
+  const issuedAt = Math.floor(now / 1000);
+  const unsignedToken = `${encodeJson({ alg: 'RS256', typ: 'JWT' })}.${encodeJson({
+    iss: credentials.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase',
+    aud: tokenUri,
+    iat: issuedAt,
+    exp: issuedAt + 3600,
+  })}`;
+  const signer = createSign('RSA-SHA256');
+  signer.update(unsignedToken);
+  signer.end();
+  const assertion = `${unsignedToken}.${signer.sign(credentials.private_key, 'base64url')}`;
+  const response = await fetchImpl(tokenUri, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const body = await readJson(response);
+
+  if (!response.ok || !body.access_token) {
+    throw new Error(body.error_description || 'Google OAuth token exchange failed.');
+  }
+  return body.access_token;
 }
 
 export async function deployFirestoreRules({
@@ -99,7 +142,15 @@ export async function deployFirestoreRules({
 
 async function main() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
-  const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN;
+  let accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN;
+  if (!accessToken) {
+    const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (!credentialsPath) {
+      throw new Error('GOOGLE_APPLICATION_CREDENTIALS is required.');
+    }
+    const credentials = JSON.parse(await readFile(credentialsPath, 'utf8'));
+    accessToken = await exchangeServiceAccountCredentials({ credentials });
+  }
   const rulesContent = await readFile('firestore.rules', 'utf8');
   const indexes = JSON.parse(await readFile('firestore.indexes.json', 'utf8'));
 
