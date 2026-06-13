@@ -35,16 +35,20 @@ export async function exchangeServiceAccountCredentials({
   credentials,
   fetchImpl = fetch,
   now = Date.now(),
+  scopes = ['https://www.googleapis.com/auth/firebase'],
 }) {
   if (!credentials?.client_email || !credentials?.private_key) {
     throw new Error('Service account credentials are incomplete.');
+  }
+  if (!Array.isArray(scopes) || scopes.length === 0 || scopes.some((scope) => !scope)) {
+    throw new Error('At least one OAuth scope is required.');
   }
 
   const tokenUri = credentials.token_uri || 'https://oauth2.googleapis.com/token';
   const issuedAt = Math.floor(now / 1000);
   const unsignedToken = `${encodeJson({ alg: 'RS256', typ: 'JWT' })}.${encodeJson({
     iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/firebase',
+    scope: scopes.join(' '),
     aud: tokenUri,
     iat: issuedAt,
     exp: issuedAt + 3600,

@@ -179,7 +179,13 @@ async function loadAccessToken() {
     throw new Error('GOOGLE_APPLICATION_CREDENTIALS is required.');
   }
   const credentials = JSON.parse(await readFile(credentialsPath, 'utf8'));
-  return exchangeServiceAccountCredentials({ credentials });
+  return exchangeServiceAccountCredentials({
+    credentials,
+    scopes: [
+      'https://www.googleapis.com/auth/firebase',
+      'https://www.googleapis.com/auth/cloud-platform',
+    ],
+  });
 }
 
 async function main() {

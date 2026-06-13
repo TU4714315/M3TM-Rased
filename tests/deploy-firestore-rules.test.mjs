@@ -41,6 +41,30 @@ describe('Firestore Rules API deployment', () => {
     expect(String(request[1].body)).not.toContain(privateKey);
   });
 
+  it('includes explicitly requested OAuth scopes in the signed assertion', async () => {
+    const { privateKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+    });
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ access_token: 'token' }));
+
+    await exchangeServiceAccountCredentials({
+      credentials: {
+        client_email: 'firebase@example.iam.gserviceaccount.com',
+        private_key: privateKey,
+      },
+      scopes: ['scope-a', 'scope-b'],
+      fetchImpl,
+      now: 1_700_000_000_000,
+    });
+
+    const body = new URLSearchParams(String(fetchImpl.mock.calls[0][1].body));
+    const assertion = body.get('assertion');
+    const claims = JSON.parse(Buffer.from(assertion.split('.')[1], 'base64url').toString());
+    expect(claims.scope).toBe('scope-a scope-b');
+  });
+
   it('updates the existing Firestore release', async () => {
     const fetchImpl = vi
       .fn()
