@@ -224,7 +224,7 @@ function subscribeToData(): void {
       state.greyIntel = items;
       renderCurrentView();
     }, onError),
-    subscribeIntelligenceReports((items) => {
+    subscribeIntelligenceReports(state.session.profile.id, state.session.profile.role, (items) => {
       state.intelligenceReports = items;
       renderCurrentView();
     }, onError),

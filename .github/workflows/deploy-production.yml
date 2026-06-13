@@ -81,6 +81,7 @@ jobs:
         env:
           FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
       - name: Deploy Firestore indexes
+        continue-on-error: true
         run: node scripts/deploy-firestore-indexes.mjs
         env:
           FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf

@@ -38,6 +38,13 @@ function mapSnapshot<T>(snapshot: SnapshotLike): Array<T & { id: string }> {
   return snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as T) }));
 }
 
+function timestampMillis(value: unknown): number {
+  const timestamp = value as { toMillis?: () => number };
+  if (typeof timestamp?.toMillis === 'function') return timestamp.toMillis();
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
 function subscribeCollection<T>(
   collectionName: string,
   sortField: string,
@@ -82,10 +89,26 @@ export function subscribeGreyIntelligence(
 }
 
 export function subscribeIntelligenceReports(
+  userId: string,
+  role: Role,
   success: (items: ArabicIntelligenceReport[]) => void,
   failure: (error: Error) => void,
 ): Unsubscribe {
-  return subscribeCollection('intelligence_reports', 'createdAt', 200, success, failure);
+  const reportsQuery = role === 'user'
+    ? query(collection(db, 'intelligence_reports'), where('createdBy', '==', userId), limit(200))
+    : query(collection(db, 'intelligence_reports'), orderBy('createdAt', 'desc'), limit(200));
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => {
+      const items = mapSnapshot<Omit<ArabicIntelligenceReport, 'id'>>(
+        snapshot,
+      ) as ArabicIntelligenceReport[];
+      items.sort((left, right) =>
+        timestampMillis(right.createdAt) - timestampMillis(left.createdAt));
+      success(items);
+    },
+    failure,
+  );
 }
 
 export function subscribeIntelligenceSources(
@@ -117,13 +140,17 @@ export function subscribeWatchlists(
     ? query(
         collection(db, 'watchlists'),
         where('createdBy', '==', userId),
-        orderBy('updatedAt', 'desc'),
         limit(200),
       )
     : query(collection(db, 'watchlists'), orderBy('updatedAt', 'desc'), limit(200));
   return onSnapshot(
     watchlistQuery,
-    (snapshot) => success(mapSnapshot<Omit<Watchlist, 'id'>>(snapshot) as Watchlist[]),
+    (snapshot) => {
+      const items = mapSnapshot<Omit<Watchlist, 'id'>>(snapshot) as Watchlist[];
+      items.sort((left, right) =>
+        timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
+      success(items);
+    },
     failure,
   );
 }
