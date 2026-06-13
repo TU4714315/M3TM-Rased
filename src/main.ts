@@ -29,6 +29,7 @@ import {
 import { importLegacyData, previewLegacyImport, type ImportPreview } from './lib/migration';
 import { canManageContent, canManageUsers } from './lib/permissions';
 import { buildExportPayload } from './lib/export';
+import { friendlyError } from './lib/errors';
 import type {
   AppSettings,
   Invite,
@@ -110,15 +111,6 @@ function setMessage(message: string, type: 'success' | 'error' | 'info' = 'info'
   element.textContent = message;
   element.dataset.type = type;
   element.hidden = !message;
-}
-
-function friendlyError(error: unknown): string {
-  const message = error instanceof Error ? error.message : 'حدث خطأ غير متوقع.';
-  if (message.includes('permission-denied')) return 'لا تملك الصلاحية المطلوبة.';
-  if (message.includes('invalid-credential')) return 'بيانات الدخول غير صحيحة.';
-  if (message.includes('popup-closed')) return 'أغلقت نافذة Google قبل إكمال الدخول.';
-  if (message.includes('unauthorized-domain')) return 'الدومين غير مضاف إلى نطاقات Firebase المصرح بها.';
-  return message;
 }
 
 function clearSubscriptions(): void {
