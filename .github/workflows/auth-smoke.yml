@@ -2,6 +2,15 @@ name: Production authentication smoke test
 
 on:
   workflow_dispatch:
+    inputs:
+      bootstrap_admin_email:
+        description: Optionally create a configured admin and send a password setup email
+        required: false
+        type: choice
+        options:
+          - ""
+          - moooom001@hotmail.com
+          - mohammed.e.z.m2@gmail.com
 
 permissions:
   contents: read
@@ -28,6 +37,16 @@ jobs:
         uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+      - name: Audit and repair bootstrap administrators
+        run: node scripts/repair-bootstrap-admins.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+      - name: Bootstrap administrator by verified email
+        if: inputs.bootstrap_admin_email != ''
+        run: node scripts/bootstrap-admin-email.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+          BOOTSTRAP_ADMIN_EMAIL: ${{ inputs.bootstrap_admin_email }}
       - name: Verify Google and invited registration
         run: node scripts/smoke-production-auth.mjs
         env:
