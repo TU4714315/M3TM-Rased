@@ -1,0 +1,35 @@
+name: Production authentication smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-auth-smoke
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Authenticate Firebase administration
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+      - name: Verify Google and invited registration
+        run: node scripts/smoke-production-auth.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+          AUTH_SMOKE_BASE_URL: https://m3tm.app/
