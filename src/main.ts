@@ -30,17 +30,61 @@ import { importLegacyData, previewLegacyImport, type ImportPreview } from './lib
 import { canManageContent, canManageUsers } from './lib/permissions';
 import { buildExportPayload } from './lib/export';
 import { friendlyError } from './lib/errors';
+import {
+  subscribeAlerts,
+  subscribeBookmarks,
+  subscribeFetchLogs,
+  subscribeGreyIntelligence,
+  subscribeIntelligenceNews,
+  subscribeIntelligenceReports,
+  subscribeIntelligenceSources,
+  subscribeRepositories,
+  subscribeWatchlistHits,
+  subscribeWatchlists,
+} from './lib/intelligence-data';
+import {
+  renderAlerts,
+  renderArabicIntelligenceHub,
+  renderGreyIntelligence,
+  renderIntelligenceReports,
+  renderNewsIntelligence,
+  renderRepositoryIntelligence,
+  renderWatchlists,
+  type IntelligenceUiState,
+} from './intelligence-ui';
 import type {
   AppSettings,
+  ArabicIntelligenceReport,
+  GreyIntelligenceItem,
+  IntelligenceAlert,
+  IntelligenceNewsItem,
+  IntelligenceSource,
   Invite,
   NewsItem,
+  NewsFetchLog,
+  RepositoryIntelligenceItem,
   Role,
   Source,
   SyncRun,
   UserProfile,
+  Watchlist,
+  WatchlistHit,
 } from './types';
 
-type Route = 'dashboard' | 'news' | 'sources' | 'users' | 'import' | 'settings';
+type Route =
+  | 'dashboard'
+  | 'intelligence'
+  | 'news'
+  | 'grey-intel'
+  | 'repositories/intelligence'
+  | 'watchlists'
+  | 'alerts'
+  | 'reports'
+  | 'archive'
+  | 'sources'
+  | 'users'
+  | 'import'
+  | 'settings';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 if (!appRoot) throw new Error('App root is missing.');
@@ -55,6 +99,16 @@ const state: {
   invites: Invite[];
   syncRuns: SyncRun[];
   settings: AppSettings | null;
+  intelligenceNews: IntelligenceNewsItem[];
+  greyIntel: GreyIntelligenceItem[];
+  intelligenceReports: ArabicIntelligenceReport[];
+  intelligenceSources: IntelligenceSource[];
+  repositories: RepositoryIntelligenceItem[];
+  watchlists: Watchlist[];
+  watchlistHits: WatchlistHit[];
+  alerts: IntelligenceAlert[];
+  fetchLogs: NewsFetchLog[];
+  bookmarks: Set<string>;
   importPreview: ImportPreview | null;
   error: string;
   loading: boolean;
@@ -68,6 +122,16 @@ const state: {
   invites: [],
   syncRuns: [],
   settings: null,
+  intelligenceNews: [],
+  greyIntel: [],
+  intelligenceReports: [],
+  intelligenceSources: [],
+  repositories: [],
+  watchlists: [],
+  watchlistHits: [],
+  alerts: [],
+  fetchLogs: [],
+  bookmarks: new Set(),
   importPreview: null,
   error: '',
   loading: true,
@@ -89,7 +153,21 @@ function escapeStatic(value: string): string {
 
 function routeFromHash(): Route {
   const route = location.hash.replace(/^#\/?/, '') as Route;
-  return ['dashboard', 'news', 'sources', 'users', 'import', 'settings'].includes(route)
+  return [
+    'dashboard',
+    'intelligence',
+    'news',
+    'grey-intel',
+    'repositories/intelligence',
+    'watchlists',
+    'alerts',
+    'reports',
+    'archive',
+    'sources',
+    'users',
+    'import',
+    'settings',
+  ].includes(route)
     ? route
     : 'dashboard';
 }
@@ -138,6 +216,42 @@ function subscribeToData(): void {
       state.settings = settings;
       renderCurrentView();
     }, onError),
+    subscribeIntelligenceNews((items) => {
+      state.intelligenceNews = items;
+      renderCurrentView();
+    }, onError),
+    subscribeGreyIntelligence((items) => {
+      state.greyIntel = items;
+      renderCurrentView();
+    }, onError),
+    subscribeIntelligenceReports((items) => {
+      state.intelligenceReports = items;
+      renderCurrentView();
+    }, onError),
+    subscribeIntelligenceSources((items) => {
+      state.intelligenceSources = items;
+      renderCurrentView();
+    }, onError),
+    subscribeRepositories((items) => {
+      state.repositories = items;
+      renderCurrentView();
+    }, onError),
+    subscribeWatchlists(state.session.profile.id, state.session.profile.role, (items) => {
+      state.watchlists = items;
+      renderCurrentView();
+    }, onError),
+    subscribeWatchlistHits((items) => {
+      state.watchlistHits = items;
+      renderCurrentView();
+    }, onError),
+    subscribeAlerts((items) => {
+      state.alerts = items;
+      renderCurrentView();
+    }, onError),
+    subscribeBookmarks(state.session.profile.id, (items) => {
+      state.bookmarks = items;
+      renderCurrentView();
+    }, onError),
   );
   if (canManageUsers(state.session.profile.role)) {
     state.unsubscribers.push(
@@ -155,6 +269,10 @@ function subscribeToData(): void {
     state.unsubscribers.push(
       subscribeSyncRuns((items) => {
         state.syncRuns = items;
+        renderCurrentView();
+      }, onError),
+      subscribeFetchLogs((items) => {
+        state.fetchLogs = items;
         renderCurrentView();
       }, onError),
     );
@@ -263,13 +381,20 @@ function renderShell(): void {
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#/dashboard" aria-label="M3TM RASED">
+        <a class="brand" href="#/intelligence" aria-label="M3TM RASED">
           <span class="brand-mark">M3</span>
           <span><strong>RASED</strong><small>منصة الرصد</small></span>
         </a>
         <nav aria-label="التنقل الرئيسي">
           ${navButton('dashboard', 'لوحة الرصد')}
-          ${navButton('news', 'الأخبار')}
+          ${navButton('intelligence', 'مركز الرصد العربي')}
+          ${navButton('news', 'مركز الأخبار')}
+          ${navButton('grey-intel', 'المصادر الرمادية')}
+          ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
+          ${navButton('watchlists', 'قوائم المراقبة')}
+          ${navButton('alerts', `التنبيهات${state.alerts.some((item) => !item.read) ? ' •' : ''}`)}
+          ${navButton('reports', 'التقارير التنفيذية')}
+          ${navButton('archive', 'الأرشيف القديم')}
           ${navButton('sources', 'المصادر')}
           ${adminLinks}
         </nav>
@@ -486,6 +611,23 @@ function renderNews(view: HTMLElement): void {
       setMessage(friendlyError(error), 'error');
     }
   });
+}
+
+function intelligenceUiState(profile: UserProfile): IntelligenceUiState {
+  return {
+    userId: profile.id,
+    role: profile.role,
+    news: state.intelligenceNews,
+    sources: state.intelligenceSources,
+    repositories: state.repositories,
+    watchlists: state.watchlists,
+    hits: state.watchlistHits,
+    alerts: state.alerts,
+    fetchLogs: state.fetchLogs,
+    bookmarks: state.bookmarks,
+    greyIntel: state.greyIntel,
+    reports: state.intelligenceReports,
+  };
 }
 
 function renderSources(view: HTMLElement): void {
@@ -803,7 +945,14 @@ function renderCurrentView(): void {
   view.textContent = '';
   const titles: Record<Route, string> = {
     dashboard: 'لوحة الرصد',
-    news: 'الأخبار',
+    intelligence: 'مركز الرصد العربي',
+    news: 'مركز الأخبار والاستخبارات',
+    'grey-intel': 'المصادر الرمادية والتسريبات',
+    'repositories/intelligence': 'ذكاء المستودعات',
+    watchlists: 'قوائم المراقبة',
+    alerts: 'التنبيهات',
+    reports: 'التقارير التنفيذية',
+    archive: 'الأرشيف القديم',
     sources: 'المصادر',
     users: 'المستخدمون',
     import: 'الاستيراد',
@@ -815,7 +964,15 @@ function renderCurrentView(): void {
     state.error = '';
   }
   if (state.route === 'dashboard') renderDashboard(view);
-  if (state.route === 'news') renderNews(view);
+  const intelligenceState = intelligenceUiState(state.session.profile);
+  if (state.route === 'intelligence') renderArabicIntelligenceHub(view, intelligenceState, setMessage);
+  if (state.route === 'news') renderNewsIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'grey-intel') renderGreyIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'repositories/intelligence') renderRepositoryIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'watchlists') renderWatchlists(view, intelligenceState, setMessage);
+  if (state.route === 'alerts') renderAlerts(view, intelligenceState, setMessage);
+  if (state.route === 'reports') renderIntelligenceReports(view, intelligenceState);
+  if (state.route === 'archive') renderNews(view);
   if (state.route === 'sources') renderSources(view);
   if (state.route === 'users') renderUsers(view);
   if (state.route === 'import') renderImport(view);

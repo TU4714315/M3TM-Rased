@@ -41,6 +41,23 @@ beforeAll(async () => {
       createdAt: new Date(),
       createdBy: 'manager-1',
     });
+    await setDoc(doc(firestore, 'news_items', 'intel-1'), {
+      title: 'Intelligence',
+      source: 'Source',
+      provider: 'rss',
+      score: 75,
+      publishedAt: new Date(),
+    });
+    await setDoc(doc(firestore, 'repo_intelligence_items', 'repo-1'), {
+      fullName: 'org/repo',
+      score: 80,
+      saved: false,
+    });
+    await setDoc(doc(firestore, 'grey_intel_items', 'grey-1'), {
+      title: 'Public indicator',
+      publishedAt: new Date(),
+      legal_warning: 'Metadata only',
+    });
   });
 });
 
@@ -156,6 +173,108 @@ describe('Firestore rules', () => {
         feedSyncEnabled: true,
         updatedAt: new Date(),
         updatedBy: 'bootstrap-admin',
+      }),
+    );
+  });
+
+  it('allows users to read intelligence and manage only their bookmarks', async () => {
+    const firestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(getDoc(doc(firestore, 'news_items', 'intel-1')));
+    await assertSucceeds(
+      setDoc(doc(firestore, 'news_bookmarks', 'user-1_intel-1'), {
+        userId: 'user-1',
+        newsId: 'intel-1',
+        createdAt: new Date(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(firestore, 'news_bookmarks', 'manager-1_intel-1'), {
+        userId: 'manager-1',
+        newsId: 'intel-1',
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it('keeps intelligence ingestion server-only and source management role-protected', async () => {
+    const userFirestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertFails(
+      setDoc(doc(userFirestore, 'news_items', 'blocked'), {
+        title: 'Blocked ingestion',
+        publishedAt: new Date(),
+      }),
+    );
+    const managerFirestore = environment
+      .authenticatedContext('manager-1', { email: 'manager@example.com' })
+      .firestore();
+    await assertSucceeds(
+      setDoc(doc(managerFirestore, 'news_sources', 'source-1'), {
+        name: 'Managed RSS',
+        type: 'rss',
+        provider: 'rss',
+        url: 'https://example.com/feed.xml',
+        query: '',
+        category: 'Cybersecurity',
+        language: 'en',
+        priority: 80,
+        enabled: true,
+        fetchIntervalMinutes: 60,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'manager-1',
+      }),
+    );
+  });
+
+  it('allows personal watchlists without exposing other user watchlists', async () => {
+    const userFirestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(
+      setDoc(doc(userFirestore, 'watchlists', 'watch-1'), {
+        name: 'CVE monitor',
+        type: 'news',
+        keywords: ['CVE'],
+        entities: [],
+        enabled: true,
+        notifyChannels: ['dashboard'],
+        createdBy: 'user-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it('keeps grey ingestion server-only and allows personal grey bookmarks', async () => {
+    const firestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(getDoc(doc(firestore, 'grey_intel_items', 'grey-1')));
+    await assertFails(setDoc(doc(firestore, 'grey_intel_items', 'blocked'), { title: 'Blocked' }));
+    await assertSucceeds(
+      setDoc(doc(firestore, 'grey_bookmarks', 'user-1_grey-1'), {
+        userId: 'user-1',
+        itemId: 'grey-1',
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it('allows users to create their own Arabic intelligence reports', async () => {
+    const firestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(
+      setDoc(doc(firestore, 'intelligence_reports', 'report-1'), {
+        type: 'موجز استخباري إقليمي',
+        title: 'موجز',
+        legalNotice: 'مصادر عامة فقط',
+        createdBy: 'user-1',
+        createdAt: new Date(),
       }),
     );
   });

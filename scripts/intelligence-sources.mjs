@@ -1,0 +1,51 @@
+export const DEFAULT_INTELLIGENCE_SOURCES = [
+  ['google-security', 'Google Security Blog', 'rss', 'https://security.googleblog.com/feeds/posts/default', 'Cybersecurity', 95],
+  ['cloudflare-blog', 'Cloudflare Blog', 'rss', 'https://blog.cloudflare.com/rss/', 'Cloud', 90],
+  ['microsoft-security', 'Microsoft Security Blog', 'rss', 'https://www.microsoft.com/en-us/security/blog/feed/', 'Cybersecurity', 92],
+  ['aws-security', 'AWS Security Blog', 'rss', 'https://aws.amazon.com/blogs/security/feed/', 'Cloud', 88],
+  ['google-cloud', 'Google Cloud Blog', 'rss', 'https://cloudblog.withgoogle.com/rss/', 'Google Cloud', 90],
+  ['github-blog', 'GitHub Blog', 'rss', 'https://github.blog/feed/', 'GitHub', 88],
+  ['the-hacker-news', 'The Hacker News', 'rss', 'https://feeds.feedburner.com/TheHackersNews', 'Cybersecurity', 90],
+  ['krebs-security', 'KrebsOnSecurity', 'rss', 'https://krebsonsecurity.com/feed/', 'Cybersecurity', 92],
+  ['bleeping-computer', 'BleepingComputer', 'rss', 'https://www.bleepingcomputer.com/feed/', 'Cybersecurity', 88],
+  ['security-week', 'SecurityWeek', 'rss', 'https://www.securityweek.com/feed/', 'Cybersecurity', 86],
+  ['openai-blog', 'OpenAI News', 'rss', 'https://openai.com/news/rss.xml', 'Artificial Intelligence', 88],
+  ['firebase-blog', 'Firebase Blog', 'rss', 'https://firebase.blog/rss.xml', 'Firebase', 88],
+].map(([id, name, provider, url, category, priority]) => ({
+  id,
+  name,
+  type: provider,
+  provider,
+  url,
+  category,
+  language: 'en',
+  priority,
+  enabled: true,
+  fetchIntervalMinutes: 60,
+  query: '',
+}));
+
+export const DEFAULT_GDELT_QUERIES = [
+  'cybersecurity',
+  'artificial intelligence',
+  'cloud security',
+  'OSINT',
+  'Google Cloud',
+  'Firebase',
+  'Telegram bot',
+  'API security',
+  'Saudi cybersecurity',
+  'CVE vulnerability',
+];
+
+export const DEFAULT_GITHUB_QUERIES = [
+  'OSINT dashboard',
+  'threat intelligence',
+  'FastAPI dashboard',
+  'Telegram bot dashboard',
+  'AI agent dashboard',
+  'CVE monitor',
+  'RSS aggregator',
+  'GDELT dashboard',
+  'Firestore Cloud Run FastAPI',
+];

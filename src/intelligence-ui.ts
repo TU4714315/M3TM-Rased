@@ -1,0 +1,936 @@
+import { canManageContent } from './lib/permissions';
+import { friendlyError } from './lib/errors';
+import {
+  createArabicIntelligenceReport,
+  createReportFromNews,
+  createTaskFromItem,
+  deleteIntelligenceSource,
+  deleteWatchlist,
+  markAlertRead,
+  markAllAlertsRead,
+  requestIntelligenceRefresh,
+  saveIntelligenceSource,
+  saveRepository,
+  saveWatchlist,
+  summarizeNewsItem,
+  toggleGreyBookmark,
+  toggleNewsBookmark,
+} from './lib/intelligence-data';
+import type {
+  ArabicIntelligenceReport,
+  GreyIntelligenceItem,
+  IntelligenceAlert,
+  IntelligenceNewsItem,
+  IntelligenceProvider,
+  IntelligenceSource,
+  NewsFetchLog,
+  RepositoryIntelligenceItem,
+  Role,
+  Watchlist,
+  WatchlistHit,
+} from './types';
+
+export interface IntelligenceUiState {
+  userId: string;
+  role: Role;
+  news: IntelligenceNewsItem[];
+  sources: IntelligenceSource[];
+  repositories: RepositoryIntelligenceItem[];
+  watchlists: Watchlist[];
+  hits: WatchlistHit[];
+  alerts: IntelligenceAlert[];
+  fetchLogs: NewsFetchLog[];
+  bookmarks: Set<string>;
+  greyIntel: GreyIntelligenceItem[];
+  reports: ArabicIntelligenceReport[];
+}
+
+type Message = (message: string, type?: 'success' | 'error' | 'info') => void;
+
+function element(tag: string, className = '', text = ''): HTMLElement {
+  const item = document.createElement(tag);
+  item.className = className;
+  item.textContent = text;
+  return item;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character] || character);
+}
+
+function formatDate(value: unknown): string {
+  const timestamp = value as { toDate?: () => Date };
+  const date = typeof timestamp?.toDate === 'function' ? timestamp.toDate() : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return 'غير معروف';
+  return new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function csv(value: FormDataEntryValue | null): string[] {
+  return String(value ?? '')
+    .split(/[,،\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function providerLabel(provider: IntelligenceProvider): string {
+  const labels: Record<IntelligenceProvider, string> = {
+    rss: 'RSS',
+    gdelt: 'GDELT',
+    hackernews: 'Hacker News',
+    github: 'GitHub',
+    newsapi: 'NewsAPI',
+    cisa_kev: 'CISA KEV',
+    custom: 'مخصص',
+  };
+  return labels[provider];
+}
+
+function scoreClass(score: number): string {
+  if (score >= 85) return 'critical';
+  if (score >= 65) return 'high';
+  if (score >= 40) return 'medium';
+  return 'low';
+}
+
+function buildNewsReport(items: IntelligenceNewsItem[]): string {
+  return items
+    .map(
+      (item, index) =>
+        `## ${index + 1}. ${item.title}\n\n- المصدر: ${item.source}\n- التصنيف: ${item.category}\n- الدرجة: ${item.score}/100\n- الرابط: ${item.url}\n\n${item.summary || item.contentSnippet}`,
+    )
+    .join('\n\n---\n\n');
+}
+
+function newsCard(
+  item: IntelligenceNewsItem,
+  state: IntelligenceUiState,
+  setMessage: Message,
+  selected: Set<string>,
+): HTMLElement {
+  const card = element('article', 'intel-card');
+  const header = element('div', 'intel-card-header');
+  const score = element('span', `score-badge ${scoreClass(item.score)}`, `${item.score}`);
+  const identity = element('div', 'intel-card-identity');
+  identity.append(
+    element('span', 'provider-badge', providerLabel(item.provider)),
+    element('span', '', item.source),
+    element('span', '', item.category),
+    element('span', '', item.country || item.region || 'إقليمي'),
+    element('span', 'risk-label', item.risk_level || 'متوسط'),
+    element('span', '', item.importance || 'متوسطة'),
+  );
+  header.append(identity, score);
+
+  const title = element('h3', '', item.title);
+  const summary = element('p', 'intel-summary', item.summary_ar || item.summary || item.contentSnippet_ar || item.contentSnippet || 'لا يوجد ملخص متاح.');
+  const tags = element('div', 'tag-list');
+  (item.tags_ar || item.tags).slice(0, 8).forEach((tag) => tags.append(element('span', '', tag)));
+
+  const details = document.createElement('details');
+  details.className = 'intel-details';
+  const detailsSummary = document.createElement('summary');
+  detailsSummary.textContent = 'التفاصيل والكيانات';
+  const entityText = [
+    ...item.entities.cves,
+    ...item.entities.domains,
+    ...item.entities.technologies,
+    ...item.entities.githubRepos,
+  ].slice(0, 20);
+  details.append(
+    detailsSummary,
+    element('p', 'muted', entityText.length ? entityText.join(' · ') : 'لم تُستخرج كيانات واضحة.'),
+  );
+
+  const footer = element('div', 'intel-card-footer');
+  footer.append(element('small', '', formatDate(item.publishedAt)));
+  const actions = element('div', 'intel-actions');
+
+  const selectLabel = document.createElement('label');
+  selectLabel.className = 'select-item';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = selected.has(item.id);
+  checkbox.setAttribute('aria-label', `تحديد ${item.title}`);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) selected.add(item.id);
+    else selected.delete(item.id);
+  });
+  selectLabel.append(checkbox, document.createTextNode('تحديد'));
+  actions.append(selectLabel);
+
+  if (item.url) {
+    const open = element('a', 'button secondary compact', 'فتح المصدر') as HTMLAnchorElement;
+    open.href = item.url;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    actions.append(open);
+  }
+
+  const bookmarked = state.bookmarks.has(item.id);
+  const bookmark = element('button', 'button secondary compact', bookmarked ? 'إزالة الحفظ' : 'حفظ') as HTMLButtonElement;
+  bookmark.type = 'button';
+  bookmark.addEventListener('click', async () => {
+    try {
+      await toggleNewsBookmark(item.id, state.userId, !bookmarked);
+      setMessage(bookmarked ? 'أزيل الخبر من المحفوظات.' : 'حُفظ الخبر.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+  actions.append(bookmark);
+
+  if (canManageContent(state.role)) {
+    const summarize = element('button', 'button secondary compact', 'تلخيص') as HTMLButtonElement;
+    summarize.type = 'button';
+    summarize.addEventListener('click', async () => {
+      try {
+        await summarizeNewsItem(item);
+        setMessage('تم تحديث الملخص الاستخباري.', 'success');
+      } catch (error) {
+        setMessage(friendlyError(error), 'error');
+      }
+    });
+    actions.append(summarize);
+  }
+
+  const task = element('button', 'button secondary compact', 'إنشاء مهمة') as HTMLButtonElement;
+  task.type = 'button';
+  task.addEventListener('click', async () => {
+    try {
+      await createTaskFromItem({
+        title: `متابعة: ${item.title}`,
+        description: item.summary || item.contentSnippet,
+        sourceType: 'news',
+        sourceIds: [item.id],
+        createdBy: state.userId,
+      });
+      setMessage('تم إنشاء المهمة.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+  actions.append(task);
+
+  const report = element('button', 'button primary compact', 'إنشاء تقرير') as HTMLButtonElement;
+  report.type = 'button';
+  report.addEventListener('click', async () => {
+    try {
+      await createReportFromNews({
+        title: `تقرير: ${item.title}`,
+        format: 'markdown',
+        newsIds: [item.id],
+        repositoryIds: [],
+        content: buildNewsReport([item]),
+        createdBy: state.userId,
+      });
+      setMessage('تم إنشاء مسودة التقرير.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+  actions.append(report);
+  footer.append(actions);
+  card.append(header, title, summary, tags, details, footer);
+  return card;
+}
+
+function renderSourceAdmin(
+  parent: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  if (!canManageContent(state.role)) return;
+  const details = document.createElement('details');
+  details.className = 'panel editor intelligence-source-admin';
+  const summary = document.createElement('summary');
+  summary.textContent = 'إدارة مصادر الاستخبارات';
+  details.append(summary);
+  const form = document.createElement('form');
+  form.className = 'form-grid';
+  form.innerHTML = `
+    <input name="id" type="hidden" />
+    <label>الاسم<input name="name" required maxlength="160" /></label>
+    <label>المزود<select name="provider">
+      <option value="rss">RSS / Atom</option><option value="gdelt">GDELT</option>
+      <option value="hackernews">Hacker News</option><option value="github">GitHub</option>
+      <option value="newsapi">NewsAPI</option><option value="custom">مخصص</option>
+    </select></label>
+    <label class="wide">الرابط<input name="url" type="url" required /></label>
+    <label>الاستعلام<input name="query" maxlength="300" /></label>
+    <label>التصنيف<input name="category" value="Cybersecurity" maxlength="100" /></label>
+    <label>اللغة<input name="language" value="en" maxlength="12" /></label>
+    <label>الأولوية<input name="priority" type="number" min="0" max="100" value="75" /></label>
+    <label>الفاصل بالدقائق<input name="interval" type="number" min="15" max="1440" value="60" /></label>
+    <label class="toggle wide"><input name="enabled" type="checkbox" checked /><span>مصدر مفعّل</span></label>
+    <div class="card-actions wide"><button class="button primary compact" type="submit">حفظ المصدر</button>
+    <button class="button secondary compact" id="intel-source-cancel" type="button">إلغاء</button></div>
+  `;
+  details.append(form);
+
+  const list = element('div', 'source-grid intelligence-source-list');
+  state.sources.forEach((source) => {
+    const card = element('article', 'source-card');
+    const heading = element('div', 'source-heading');
+    heading.append(
+      element('h3', '', source.name),
+      element('span', `source-state ${source.enabled ? 'active' : 'paused'}`, source.enabled ? 'active' : 'paused'),
+    );
+    card.append(
+      heading,
+      element('p', '', `${providerLabel(source.provider)} · ${source.category} · أولوية ${source.priority}`),
+      element('small', '', `آخر جلب: ${formatDate(source.lastFetchedAt)}`),
+    );
+    if (source.lastError) card.append(element('p', 'inline-error', source.lastError));
+    const actions = element('div', 'card-actions');
+    const edit = element('button', 'button secondary compact', 'تعديل') as HTMLButtonElement;
+    edit.type = 'button';
+    edit.addEventListener('click', () => {
+      (form.elements.namedItem('id') as HTMLInputElement).value = source.id;
+      (form.elements.namedItem('name') as HTMLInputElement).value = source.name;
+      (form.elements.namedItem('provider') as HTMLSelectElement).value = source.provider;
+      (form.elements.namedItem('url') as HTMLInputElement).value = source.url;
+      (form.elements.namedItem('query') as HTMLInputElement).value = source.query || '';
+      (form.elements.namedItem('category') as HTMLInputElement).value = source.category;
+      (form.elements.namedItem('language') as HTMLInputElement).value = source.language;
+      (form.elements.namedItem('priority') as HTMLInputElement).value = String(source.priority);
+      (form.elements.namedItem('interval') as HTMLInputElement).value = String(source.fetchIntervalMinutes);
+      (form.elements.namedItem('enabled') as HTMLInputElement).checked = source.enabled;
+      details.open = true;
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const remove = element('button', 'button danger compact', 'حذف') as HTMLButtonElement;
+    remove.type = 'button';
+    remove.addEventListener('click', async () => {
+      if (!confirm('هل تريد حذف مصدر الاستخبارات؟')) return;
+      try {
+        await deleteIntelligenceSource(source.id, state.userId);
+        setMessage('تم حذف المصدر.', 'success');
+      } catch (error) {
+        setMessage(friendlyError(error), 'error');
+      }
+    });
+    actions.append(edit, remove);
+    card.append(actions);
+    list.append(card);
+  });
+  details.append(list);
+  parent.append(details);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const values = new FormData(form);
+    try {
+      await saveIntelligenceSource(String(values.get('id') || '') || null, {
+        name: String(values.get('name') || ''),
+        provider: String(values.get('provider') || 'rss') as IntelligenceProvider,
+        url: String(values.get('url') || ''),
+        query: String(values.get('query') || ''),
+        category: String(values.get('category') || 'General'),
+        language: String(values.get('language') || 'en'),
+        priority: Number(values.get('priority') || 75),
+        enabled: values.get('enabled') === 'on',
+        fetchIntervalMinutes: Number(values.get('interval') || 60),
+        createdBy: state.userId,
+      });
+      form.reset();
+      setMessage('تم حفظ مصدر الاستخبارات.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+  form.querySelector('#intel-source-cancel')?.addEventListener('click', () => form.reset());
+}
+
+const legalNotice = 'هذا التقرير يعتمد على مصادر عامة ومؤشرات منشورة. لا يحتوي التقرير على بيانات مسربة خام أو كلمات مرور أو معلومات شخصية حساسة.';
+
+function executiveReportContent(
+  news: IntelligenceNewsItem[],
+  grey: GreyIntelligenceItem[],
+): string {
+  const newsLines = news.slice(0, 30).map((item) =>
+    `- ${item.title} | ${item.source} | ${item.risk_level || 'متوسط'} | ${item.url}`,
+  );
+  const greyLines = grey.slice(0, 20).map((item) =>
+    `- ${item.title} | ${item.source} | ${item.data_sensitivity} | ${item.risk_level} | ${item.url}`,
+  );
+  return [
+    '# موجز استخباري إقليمي',
+    `تاريخ التقرير: ${new Date().toLocaleString('ar-SA')}`,
+    'نطاق التغطية: الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني.',
+    '',
+    '## الملخص التنفيذي',
+    `جرى تحليل ${news.length} خبر و${grey.length} مؤشر عام. الأولوية للأحداث الحرجة والمرتفعة.`,
+    '',
+    '## أهم المؤشرات',
+    ...newsLines,
+    '',
+    '## التسريبات والمصادر الرمادية',
+    ...(greyLines.length ? greyLines : ['- لا توجد مؤشرات عامة مسجلة حاليًا.']),
+    '',
+    '## التوصيات التنفيذية',
+    '- التحقق من المصادر الأولية قبل اتخاذ قرار.',
+    '- متابعة العناصر الحرجة عبر قوائم المراقبة.',
+    '- عدم تداول أي بيانات شخصية أو سجلات مسربة خام.',
+    '',
+    '## تنبيه قانوني',
+    legalNotice,
+  ].join('\n');
+}
+
+async function requestOperation(
+  state: IntelligenceUiState,
+  setMessage: Message,
+  type: 'refresh' | 'seed-arabic' | 'seed-grey',
+  scope: 'all' | 'arabic' | 'grey',
+  success: string,
+): Promise<void> {
+  try {
+    await requestIntelligenceRefresh(state.userId, '', scope, type);
+    setMessage(success, 'success');
+  } catch (error) {
+    setMessage(friendlyError(error), 'error');
+  }
+}
+
+export function renderArabicIntelligenceHub(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  const manager = canManageContent(state.role);
+  const critical = state.news.filter((item) => item.risk_level === 'حرج').length
+    + state.greyIntel.filter((item) => item.risk_level === 'حرج').length;
+  const categories: Array<[string, number]> = [
+    ['أخبار عاجلة', state.news.filter((item) => item.importance === 'عاجلة').length],
+    ['الخليج', state.news.filter((item) => item.category === 'الخليج').length],
+    ['إيران', state.news.filter((item) => item.category === 'إيران').length],
+    ['الضربات والهجمات', state.news.filter((item) => item.category === 'الضربات والهجمات').length],
+    ['التجسس والاستخبارات', state.news.filter((item) => item.category === 'التجسس والاستخبارات').length],
+    ['التسريبات', state.greyIntel.length],
+    ['المصادر الرمادية', state.greyIntel.length],
+    ['لبنان والعراق', state.news.filter((item) => ['لبنان', 'العراق'].includes(item.category)).length],
+    ['باكستان', state.news.filter((item) => item.category === 'باكستان').length],
+    ['البحر الأحمر', state.news.filter((item) => item.category === 'البحر الأحمر').length],
+    ['مضيق هرمز', state.news.filter((item) => item.category === 'مضيق هرمز').length],
+    ['الحرس الثوري', state.news.filter((item) => item.category === 'الحرس الثوري الإيراني').length],
+    ['حزب الله', state.news.filter((item) => item.category === 'حزب الله').length],
+    ['الحوثيون', state.news.filter((item) => item.category === 'الحوثيون').length],
+    ['الأمن السيبراني', state.news.filter((item) => item.category === 'الأمن السيبراني').length],
+    ['الذكاء الاصطناعي', state.news.filter((item) => item.category === 'الذكاء الاصطناعي').length],
+    ['المستودعات المهمة', state.repositories.filter((item) => item.score >= 70).length],
+    ['التنبيهات', state.alerts.filter((item) => !item.read).length],
+  ];
+  view.innerHTML = `
+    <section class="arabic-hero">
+      <div><p class="eyebrow">M3TM RASED</p><h2>مركز الرصد العربي</h2>
+      <p>لوحة تحليل محايدة للأخبار الإقليمية، المخاطر، المؤشرات العامة، والمستودعات التقنية.</p></div>
+      <div class="risk-orb ${critical ? 'critical' : ''}"><span>المخاطر الحرجة</span><strong>${critical}</strong></div>
+    </section>
+    <section class="hub-actions">
+      <button class="button secondary" id="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر العربية</button>
+      <button class="button secondary" id="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
+      <button class="button primary" id="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
+      <button class="button primary" id="fetch-grey" ${manager ? '' : 'disabled'}>جلب مؤشرات التسريبات</button>
+      <button class="button secondary" id="create-executive-report">إنشاء تقرير تنفيذي</button>
+      <a class="button secondary" href="#/sources">إدارة المصادر</a>
+    </section>
+    <section class="risk-dashboard">
+      ${categories.map(([name, value]) => `<article><span>${name}</span><strong>${value}</strong></article>`).join('')}
+    </section>
+    <section class="dashboard-grid">
+      <article class="panel"><div class="panel-heading"><h3>أحدث الأخبار العربية</h3><a href="#/news">عرض الكل</a></div>
+        <div class="compact-list">${state.news.slice(0, 8).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.source)} · ${escapeHtml(item.risk_level || 'متوسط')}</small></div><span class="score-badge ${scoreClass(item.score)}">${item.score}</span></div>`).join('') || '<p class="empty">ابدأ بتهيئة المصادر ثم اطلب الجلب.</p>'}</div>
+      </article>
+      <article class="panel"><div class="panel-heading"><h3>مؤشرات فقط</h3><a href="#/grey-intel">عرض المؤشرات</a></div>
+        <p class="legal-warning">${legalNotice}</p>
+        <div class="compact-list">${state.greyIntel.slice(0, 6).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small></div></div>`).join('') || '<p class="empty">لا توجد مؤشرات عامة بعد.</p>'}</div>
+      </article>
+    </section>
+  `;
+  view.querySelector('#seed-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-arabic', 'arabic', 'تم تسجيل تهيئة المصادر العربية وسيبدأ جلبها.'));
+  view.querySelector('#seed-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-grey', 'grey', 'تم تسجيل تهيئة المصادر الرمادية الآمنة.'));
+  view.querySelector('#fetch-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'arabic', 'تم تسجيل طلب جلب الأخبار العربية.'));
+  view.querySelector('#fetch-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'grey', 'تم تسجيل طلب جلب مؤشرات التسريبات العامة.'));
+  view.querySelector('#create-executive-report')?.addEventListener('click', async () => {
+    try {
+      await createArabicIntelligenceReport({
+        type: 'موجز استخباري إقليمي',
+        title: `الموجز التنفيذي - ${new Date().toLocaleDateString('ar-SA')}`,
+        coverage: 'الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني',
+        executiveSummary: `تحليل ${state.news.length} خبر و${state.greyIntel.length} مؤشر عام.`,
+        content: executiveReportContent(state.news, state.greyIntel),
+        newsIds: state.news.slice(0, 100).map((item) => item.id),
+        greyIntelIds: state.greyIntel.slice(0, 100).map((item) => item.id),
+        repositoryIds: state.repositories.filter((item) => item.saved).map((item) => item.id),
+        riskLevel: critical ? 'حرج' : 'متوسط',
+        legalNotice,
+        createdBy: state.userId,
+      });
+      setMessage('تم إنشاء مسودة التقرير التنفيذي العربي.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
+
+export function renderGreyIntelligence(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">مؤشرات عامة مفتوحة</p><h2>المصادر الرمادية والتسريبات</h2>
+      <p class="muted">تُحفظ بيانات وصفية ومؤشرات منشورة فقط. لا تُخزّن سجلات مسربة أو كلمات مرور أو بيانات شخصية.</p></div></section>
+    <section class="panel intel-filter-panel"><div class="intel-filters">
+      <label>كلمة البحث<input id="grey-search" type="search" /></label>
+      <label>الدولة<select id="grey-country"><option value="">الكل</option></select></label>
+      <label>مستوى الخطر<select id="grey-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
+      <label>حساسية البيانات<select id="grey-sensitivity"><option value="">الكل</option><option>عام</option><option>حساس</option><option>مؤشر تسريب</option><option>تسريب محتمل</option><option>محظور التخزين</option></select></label>
+    </div></section>
+    <p class="legal-warning">${legalNotice}</p>
+    <section id="grey-results" class="intel-grid"></section>
+  `;
+  const country = view.querySelector<HTMLSelectElement>('#grey-country');
+  [...new Set(state.greyIntel.map((item) => item.country).filter(Boolean))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    country?.append(option);
+  });
+  const draw = () => {
+    const search = view.querySelector<HTMLInputElement>('#grey-search')?.value.toLowerCase() || '';
+    const risk = view.querySelector<HTMLSelectElement>('#grey-risk')?.value || '';
+    const sensitivity = view.querySelector<HTMLSelectElement>('#grey-sensitivity')?.value || '';
+    const items = state.greyIntel.filter((item) =>
+      `${item.title} ${item.summary_ar} ${item.source} ${item.tags_ar.join(' ')}`.toLowerCase().includes(search)
+      && (!country?.value || item.country === country.value)
+      && (!risk || item.risk_level === risk)
+      && (!sensitivity || item.data_sensitivity === sensitivity),
+    );
+    const container = view.querySelector('#grey-results');
+    if (!container) return;
+    container.textContent = '';
+    items.forEach((item) => {
+      const card = element('article', 'intel-card grey-card');
+      const header = element('div', 'intel-card-header');
+      header.append(element('span', 'provider-badge', 'مؤشرات فقط'), element('span', 'risk-label', item.risk_level));
+      const meta = element('div', 'tag-list');
+      [item.source_type, item.data_sensitivity, item.leaked_data_type, item.country].filter(Boolean).forEach((value) => meta.append(element('span', '', value)));
+      if (item.affected_entities.length) {
+        meta.append(element('span', '', `الجهات المتأثرة: ${item.affected_entities.slice(0, 4).join('، ')}`));
+      }
+      const actions = element('div', 'intel-actions');
+      const open = element('a', 'button secondary compact', 'فتح المصدر') as HTMLAnchorElement;
+      open.href = item.url;
+      open.target = '_blank';
+      open.rel = 'noopener noreferrer';
+      const save = element('button', 'button secondary compact', 'حفظ') as HTMLButtonElement;
+      save.addEventListener('click', async () => {
+        try {
+          await toggleGreyBookmark(item.id, state.userId, true);
+          setMessage('تم حفظ المؤشر.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      });
+      const task = element('button', 'button secondary compact', 'إنشاء مهمة متابعة') as HTMLButtonElement;
+      task.addEventListener('click', () => void createTaskFromItem({
+        title: `متابعة مؤشر: ${item.title}`,
+        description: `${item.summary_ar}\n\n${item.legal_warning}`,
+        sourceType: 'news',
+        sourceIds: [item.id],
+        createdBy: state.userId,
+      }).then(() => setMessage('تم إنشاء مهمة المتابعة.', 'success')).catch((error) => setMessage(friendlyError(error), 'error')));
+      const report = element('button', 'button primary compact', 'إنشاء تقرير') as HTMLButtonElement;
+      report.addEventListener('click', async () => {
+        try {
+          await createArabicIntelligenceReport({
+            type: 'تقرير التسريبات والمصادر الرمادية',
+            title: `تقرير مؤشر: ${item.title}`,
+            coverage: `${item.country || item.region} · ${formatDate(item.publishedAt)}`,
+            executiveSummary: item.summary_ar,
+            content: executiveReportContent([], [item]),
+            newsIds: [],
+            greyIntelIds: [item.id],
+            repositoryIds: [],
+            riskLevel: item.risk_level,
+            legalNotice,
+            createdBy: state.userId,
+          });
+          setMessage('تم إنشاء تقرير المؤشر.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      });
+      actions.append(open, save, task, report);
+      card.append(header, element('h3', '', item.title), element('p', 'intel-summary', item.summary_ar), meta, element('p', 'legal-warning compact-warning', item.legal_warning), actions);
+      container.append(card);
+    });
+    if (!items.length) container.append(element('p', 'empty panel', 'لا توجد مؤشرات مطابقة. هيّئ المصادر الرمادية ثم اطلب الجلب.'));
+  };
+  view.querySelectorAll('#grey-search, #grey-country, #grey-risk, #grey-sensitivity').forEach((control) => control.addEventListener('input', draw));
+  draw();
+}
+
+export function renderIntelligenceReports(view: HTMLElement, state: IntelligenceUiState): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">تقارير عربية محكومة بالمصادر</p><h2>التقارير التنفيذية</h2>
+      <p class="muted">${legalNotice}</p></div></section>
+    <section class="report-list"></section>
+  `;
+  const list = view.querySelector('.report-list');
+  state.reports.forEach((report) => {
+    const card = element('article', 'panel report-card');
+    card.append(element('span', 'provider-badge', report.type), element('h3', '', report.title), element('p', 'muted', report.executiveSummary), element('small', '', `${report.riskLevel} · ${formatDate(report.createdAt)}`));
+    const details = document.createElement('details');
+    details.append(element('summary', '', 'عرض التقرير'), element('pre', 'report-content', report.content));
+    card.append(details);
+    list?.append(card);
+  });
+  if (!state.reports.length) list?.append(element('p', 'empty panel', 'لم تُنشأ تقارير تنفيذية بعد.'));
+}
+
+export function renderNewsIntelligence(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  view.innerHTML = `
+    <section class="page-heading">
+      <div><p class="eyebrow">الأخبار العربية</p><h2>مركز الأخبار والاستخبارات</h2>
+      <p class="muted">رصد متعدد المصادر مع تقييم وكيانات وتقارير قابلة للتنفيذ.</p></div>
+      ${canManageContent(state.role) ? '<button class="button primary compact" id="intelligence-refresh" type="button">طلب تحديث شامل</button>' : ''}
+    </section>
+    <section class="intel-metrics">
+      <article><span>العناصر</span><strong>${state.news.length}</strong></article>
+      <article><span>عالية الأهمية</span><strong>${state.news.filter((item) => item.score >= 75).length}</strong></article>
+      <article><span>المحفوظة</span><strong>${state.bookmarks.size}</strong></article>
+      <article><span>المصادر النشطة</span><strong>${state.sources.filter((item) => item.enabled).length}</strong></article>
+    </section>
+    <section class="panel intel-filter-panel">
+      <div class="intel-filters">
+        <label>بحث<input id="intel-search" type="search" placeholder="CVE، OSINT، شركة، تقنية..." /></label>
+        <label>التصنيف<select id="intel-category"><option value="">الكل</option></select></label>
+        <label>الدولة<select id="intel-country"><option value="">الكل</option></select></label>
+        <label>المزود<select id="intel-provider"><option value="">الكل</option></select></label>
+        <label>مستوى الخطر<select id="intel-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
+        <label class="toggle"><input id="intel-bookmarked" type="checkbox" /><span>المحفوظة فقط</span></label>
+      </div>
+      <div class="card-actions"><button class="button secondary compact" id="bulk-report" type="button">تقرير من المحدد</button>
+      <span id="intel-result-count" class="muted"></span></div>
+    </section>
+    <section id="intelligence-results" class="intel-grid"></section>
+  `;
+
+  renderSourceAdmin(view, state, setMessage);
+  const selected = new Set<string>();
+  const category = view.querySelector<HTMLSelectElement>('#intel-category');
+  const country = view.querySelector<HTMLSelectElement>('#intel-country');
+  const provider = view.querySelector<HTMLSelectElement>('#intel-provider');
+  [...new Set(state.news.map((item) => item.category))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    category?.append(option);
+  });
+  [...new Set(state.news.map((item) => item.provider))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = providerLabel(value);
+    provider?.append(option);
+  });
+  [...new Set(state.news.map((item) => item.country).filter(Boolean))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value || '';
+    option.textContent = value || '';
+    country?.append(option);
+  });
+
+  const draw = () => {
+    const container = view.querySelector('#intelligence-results');
+    if (!container) return;
+    const search = view.querySelector<HTMLInputElement>('#intel-search')?.value.trim().toLowerCase() || '';
+    const selectedCategory = category?.value || '';
+    const selectedProvider = provider?.value || '';
+    const selectedRisk = view.querySelector<HTMLSelectElement>('#intel-risk')?.value || '';
+    const bookmarksOnly = view.querySelector<HTMLInputElement>('#intel-bookmarked')?.checked || false;
+    const items = state.news.filter((item) => {
+      const haystack = `${item.title} ${item.summary_ar || item.summary} ${item.contentSnippet_ar || item.contentSnippet} ${item.source} ${(item.tags_ar || item.tags).join(' ')}`.toLowerCase();
+      return (!search || haystack.includes(search))
+        && (!selectedCategory || item.category === selectedCategory)
+        && (!selectedProvider || item.provider === selectedProvider)
+        && (!country?.value || item.country === country.value)
+        && (!selectedRisk || item.risk_level === selectedRisk)
+        && (!bookmarksOnly || state.bookmarks.has(item.id));
+    });
+    container.textContent = '';
+    items.forEach((item) => container.append(newsCard(item, state, setMessage, selected)));
+    if (!items.length) container.append(element('p', 'empty panel', 'لا توجد نتائج مطابقة للفلاتر الحالية.'));
+    const count = view.querySelector('#intel-result-count');
+    if (count) count.textContent = `${items.length} نتيجة`;
+  };
+  view.querySelectorAll('#intel-search, #intel-category, #intel-country, #intel-provider, #intel-risk, #intel-bookmarked')
+    .forEach((control) => control.addEventListener('input', draw));
+  draw();
+
+  view.querySelector('#intelligence-refresh')?.addEventListener('click', async () => {
+    try {
+      await requestIntelligenceRefresh(state.userId);
+      setMessage('تم تسجيل طلب التحديث. ستعالجه دورة المزامنة التالية.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+  view.querySelector('#bulk-report')?.addEventListener('click', async () => {
+    const items = state.news.filter((item) => selected.has(item.id));
+    if (!items.length) {
+      setMessage('حدد خبرًا واحدًا على الأقل.', 'error');
+      return;
+    }
+    try {
+      await createReportFromNews({
+        title: `تقرير استخباري مجمع - ${new Date().toLocaleDateString('ar-SA')}`,
+        format: 'markdown',
+        newsIds: items.map((item) => item.id),
+        repositoryIds: [],
+        content: buildNewsReport(items),
+        createdBy: state.userId,
+      });
+      setMessage(`تم إنشاء تقرير من ${items.length} عناصر.`, 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
+
+export function renderRepositoryIntelligence(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">مراقبة المستودعات العامة</p>
+      <h2>ذكاء المستودعات العامة</h2><p class="muted">أفكار معمارية ومنتجات مفتوحة المصدر دون نسخ شفرة غير مرخصة.</p></div></section>
+    <section class="panel intel-filter-panel">
+      <div class="intel-filters repo-filters">
+        <label>بحث<input id="repo-search" type="search" placeholder="OSINT، FastAPI، MISP..." /></label>
+        <label>اللغة<select id="repo-language"><option value="">كل اللغات</option></select></label>
+        <label>الحد الأدنى للنجوم<input id="repo-stars" type="number" min="0" value="0" /></label>
+        <label>الحد الأدنى للصلة<input id="repo-score" type="number" min="0" max="100" value="0" /></label>
+      </div>
+    </section>
+    <section id="repository-results" class="intel-grid"></section>
+  `;
+  const languages = view.querySelector<HTMLSelectElement>('#repo-language');
+  [...new Set(state.repositories.map((item) => item.language).filter(Boolean))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    languages?.append(option);
+  });
+  const draw = () => {
+    const container = view.querySelector('#repository-results');
+    if (!container) return;
+    const search = view.querySelector<HTMLInputElement>('#repo-search')?.value.toLowerCase() || '';
+    const language = languages?.value || '';
+    const stars = Number(view.querySelector<HTMLInputElement>('#repo-stars')?.value || 0);
+    const score = Number(view.querySelector<HTMLInputElement>('#repo-score')?.value || 0);
+    const items = state.repositories.filter((item) =>
+      `${item.fullName} ${item.description} ${item.topics.join(' ')}`.toLowerCase().includes(search)
+      && (!language || item.language === language)
+      && item.stars >= stars
+      && item.score >= score,
+    );
+    container.textContent = '';
+    items.forEach((item) => {
+      const card = element('article', 'intel-card repo-card');
+      const header = element('div', 'intel-card-header');
+      header.append(element('span', 'provider-badge', item.language || 'غير محدد'), element('span', `score-badge ${scoreClass(item.score)}`, String(item.score)));
+      card.append(header, element('h3', '', item.fullName), element('p', 'intel-summary', item.description || 'لا يوجد وصف.'));
+      const metrics = element('div', 'repo-metrics');
+      metrics.append(element('span', '', `★ ${item.stars}`), element('span', '', `⑂ ${item.forks}`), element('span', '', `Issues ${item.openIssues}`), element('span', '', item.license));
+      card.append(metrics);
+      const ideas = document.createElement('ul');
+      ideas.className = 'idea-list';
+      item.usefulIdeas.forEach((idea) => ideas.append(element('li', '', idea)));
+      card.append(ideas);
+      const actions = element('div', 'intel-actions');
+      const open = element('a', 'button secondary compact', 'فتح GitHub') as HTMLAnchorElement;
+      open.href = item.url;
+      open.target = '_blank';
+      open.rel = 'noopener noreferrer';
+      actions.append(open);
+      if (canManageContent(state.role)) {
+        const save = element('button', 'button secondary compact', item.saved ? 'إلغاء الحفظ' : 'حفظ') as HTMLButtonElement;
+        save.addEventListener('click', async () => {
+          try {
+            await saveRepository(item.id, !item.saved);
+            setMessage('تم تحديث حالة المستودع.', 'success');
+          } catch (error) {
+            setMessage(friendlyError(error), 'error');
+          }
+        });
+        actions.append(save);
+      }
+      const task = element('button', 'button primary compact', 'إنشاء مهمة') as HTMLButtonElement;
+      task.addEventListener('click', async () => {
+        try {
+          await createTaskFromItem({
+            title: `تحليل مستودع: ${item.fullName}`,
+            description: `${item.description}\n\n${item.usefulIdeas.join('\n')}`,
+            sourceType: 'repository',
+            sourceIds: [item.id],
+            createdBy: state.userId,
+          });
+          setMessage('تم إنشاء مهمة تحليل المستودع.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      });
+      actions.append(task);
+      card.append(actions);
+      container.append(card);
+    });
+    if (!items.length) container.append(element('p', 'empty panel', 'لا توجد مستودعات مطابقة. شغّل مزود GitHub أولًا.'));
+  };
+  view.querySelectorAll('#repo-search, #repo-language, #repo-stars, #repo-score')
+    .forEach((control) => control.addEventListener('input', draw));
+  draw();
+}
+
+export function renderWatchlists(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">رصد الكيانات والموضوعات</p><h2>قوائم المراقبة</h2>
+      <p class="muted">راقب الكلمات والكيانات والثغرات والمستودعات تلقائيًا.</p></div></section>
+    <section class="panel">
+      <form id="watchlist-form" class="form-grid">
+        <input name="id" type="hidden" />
+        <label>الاسم<input name="name" required maxlength="160" /></label>
+        <label>النوع<select name="type"><option value="mixed">أخبار ومستودعات</option><option value="دولة">دولة</option><option value="شركة">شركة</option><option value="جهة حكومية">جهة حكومية</option><option value="شخص">شخص</option><option value="دومين">دومين</option><option value="بريد">بريد</option><option value="CVE">CVE</option><option value="جماعة/فصيل">جماعة/فصيل</option><option value="كلمة مفتاحية">كلمة مفتاحية</option><option value="مستودع GitHub">مستودع GitHub</option><option value="مصدر إخباري">مصدر إخباري</option></select></label>
+        <label class="wide">الكلمات المفتاحية<textarea name="keywords" rows="3" placeholder="CVE, شركة, نطاق, تقنية"></textarea></label>
+        <label class="wide">الكيانات<textarea name="entities" rows="2" placeholder="example.com, CVE-2026-1234"></textarea></label>
+        <label class="toggle"><input name="enabled" type="checkbox" checked /><span>مفعلة</span></label>
+        <label class="toggle"><input name="telegram" type="checkbox" /><span>Telegram-ready</span></label>
+        <button class="button primary compact" type="submit">حفظ القائمة</button>
+      </form>
+    </section>
+    <section class="watchlist-layout"><div id="watchlist-list" class="watchlist-list"></div>
+      <article class="panel"><div class="panel-heading"><h3>أحدث التطابقات</h3><span>${state.hits.length}</span></div><div id="watchlist-hits" class="compact-list"></div></article>
+    </section>
+  `;
+  const form = view.querySelector<HTMLFormElement>('#watchlist-form');
+  const list = view.querySelector('#watchlist-list');
+  state.watchlists.forEach((watchlist) => {
+    const card = element('article', 'panel watchlist-card');
+    const heading = element('div', 'panel-heading');
+    heading.append(element('h3', '', watchlist.name), element('span', `source-state ${watchlist.enabled ? 'active' : 'paused'}`, watchlist.enabled ? 'active' : 'paused'));
+    const tags = element('div', 'tag-list');
+    [...watchlist.keywords, ...watchlist.entities].slice(0, 12).forEach((tag) => tags.append(element('span', '', tag)));
+    const actions = element('div', 'card-actions');
+    const edit = element('button', 'button secondary compact', 'تعديل') as HTMLButtonElement;
+    edit.addEventListener('click', () => {
+      if (!form) return;
+      (form.elements.namedItem('id') as HTMLInputElement).value = watchlist.id;
+      (form.elements.namedItem('name') as HTMLInputElement).value = watchlist.name;
+      (form.elements.namedItem('type') as HTMLSelectElement).value = watchlist.type;
+      (form.elements.namedItem('keywords') as HTMLTextAreaElement).value = watchlist.keywords.join(', ');
+      (form.elements.namedItem('entities') as HTMLTextAreaElement).value = watchlist.entities.join(', ');
+      (form.elements.namedItem('enabled') as HTMLInputElement).checked = watchlist.enabled;
+      (form.elements.namedItem('telegram') as HTMLInputElement).checked = watchlist.notifyChannels.includes('telegram');
+      form.scrollIntoView({ behavior: 'smooth' });
+    });
+    const remove = element('button', 'button danger compact', 'حذف') as HTMLButtonElement;
+    remove.addEventListener('click', async () => {
+      if (!confirm('هل تريد حذف قائمة المراقبة؟')) return;
+      try {
+        await deleteWatchlist(watchlist.id);
+      } catch (error) {
+        setMessage(friendlyError(error), 'error');
+      }
+    });
+    actions.append(edit, remove);
+    card.append(heading, tags, actions);
+    list?.append(card);
+  });
+  if (!state.watchlists.length) list?.append(element('p', 'empty panel', 'لا توجد قوائم مراقبة بعد.'));
+
+  const hits = view.querySelector('#watchlist-hits');
+  state.hits.slice(0, 30).forEach((hit) => {
+    const row = element('div', 'compact-row');
+    const body = element('div');
+    body.append(element('strong', '', hit.matchedKeywords.join(' · ')), element('small', '', hit.matchedText));
+    row.append(body, element('span', `score-badge ${scoreClass(hit.score)}`, String(hit.score)));
+    hits?.append(row);
+  });
+  if (!state.hits.length) hits?.append(element('p', 'empty', 'لم تُسجل تطابقات بعد.'));
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const values = new FormData(form);
+    try {
+      await saveWatchlist(String(values.get('id') || '') || null, {
+        name: String(values.get('name') || ''),
+        type: String(values.get('type') || 'mixed') as Watchlist['type'],
+        keywords: csv(values.get('keywords')),
+        entities: csv(values.get('entities')),
+        enabled: values.get('enabled') === 'on',
+        notifyChannels: values.get('telegram') === 'on' ? ['dashboard', 'telegram'] : ['dashboard'],
+        createdBy: state.userId,
+      });
+      form.reset();
+      setMessage('تم حفظ قائمة المراقبة.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
+
+export function renderAlerts(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  const unread = state.alerts.filter((alert) => !alert.read).length;
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">تنبيهات المخاطر والتطابقات</p><h2>التنبيهات</h2>
+      <p class="muted">${unread} تنبيه غير مقروء</p></div>
+      <button class="button secondary compact" id="alerts-read-all" type="button">تعليم الكل كمقروء</button>
+    </section>
+    <section id="alerts-list" class="alert-list"></section>
+  `;
+  const list = view.querySelector('#alerts-list');
+  state.alerts.forEach((alert) => {
+    const card = element('article', `alert-card ${alert.severity} ${alert.read ? 'read' : ''}`);
+    const body = element('div');
+    body.append(element('span', 'provider-badge', alert.type), element('h3', '', alert.title), element('p', '', alert.message), element('small', '', formatDate(alert.createdAt)));
+    const button = element('button', 'button secondary compact', alert.read ? 'غير مقروء' : 'مقروء') as HTMLButtonElement;
+    button.addEventListener('click', async () => {
+      try {
+        await markAlertRead(alert.id, !alert.read);
+      } catch (error) {
+        setMessage(friendlyError(error), 'error');
+      }
+    });
+    card.append(body, button);
+    list?.append(card);
+  });
+  if (!state.alerts.length) list?.append(element('p', 'empty panel', 'لا توجد تنبيهات.'));
+  view.querySelector('#alerts-read-all')?.addEventListener('click', async () => {
+    try {
+      await markAllAlertsRead(state.alerts);
+      setMessage('تم تعليم التنبيهات كمقروءة.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
