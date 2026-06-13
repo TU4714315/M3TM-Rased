@@ -81,7 +81,9 @@ jobs:
         env:
           FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
       - name: Deploy Firestore indexes
-        run: npx firebase-tools deploy --only firestore:indexes --project m3tm-rased-07246627-7b0bf --non-interactive
+        run: node scripts/deploy-firestore-indexes.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
       - uses: FirebaseExtended/action-hosting-deploy@v0.10.0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
