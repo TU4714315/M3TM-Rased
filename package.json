@@ -15,7 +15,8 @@
     "sync:feeds": "node scripts/sync-feeds.mjs",
     "domain:status": "node scripts/configure-firebase-domains.mjs status",
     "verify:firebase-config": "node scripts/verify-firebase-web-config.mjs",
-    "smoke:auth": "node scripts/smoke-production-auth.mjs"
+    "smoke:auth": "node scripts/smoke-production-auth.mjs",
+    "repair:admins": "node scripts/repair-bootstrap-admins.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",

@@ -28,6 +28,10 @@ jobs:
         uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+      - name: Audit and repair bootstrap administrators
+        run: node scripts/repair-bootstrap-admins.mjs
+        env:
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
       - name: Verify Google and invited registration
         run: node scripts/smoke-production-auth.mjs
         env:
