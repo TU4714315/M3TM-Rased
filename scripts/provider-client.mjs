@@ -192,6 +192,30 @@ export async function fetchNewsApi(source, limit) {
   }));
 }
 
+export async function fetchCisaKev(_source, limit) {
+  const payload = await withRetry(() =>
+    fetchJson('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json'),
+  );
+  return (payload.vulnerabilities ?? []).slice(0, limit).map((item) => ({
+    title: `${item.cveID}: ${item.vulnerabilityName}`,
+    url: `https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search_api_fulltext=${encodeURIComponent(item.cveID)}`,
+    source: 'CISA KEV',
+    author: 'CISA',
+    summary: `${item.shortDescription || ''} Required action: ${item.requiredAction || ''}`,
+    publishedAt: item.dateAdded,
+    provider: 'cisa_kev',
+    tags: [item.cveID, item.vendorProject, item.product].filter(Boolean),
+    rawPayload: {
+      cve: item.cveID,
+      vendorProject: item.vendorProject,
+      product: item.product,
+      dateAdded: item.dateAdded,
+      dueDate: item.dueDate,
+      knownRansomwareCampaignUse: item.knownRansomwareCampaignUse,
+    },
+  }));
+}
+
 export async function fetchProvider(source, limit) {
   if (source.provider === 'rss' || source.type === 'rss' || source.provider === 'custom') {
     return fetchRss(source, limit);
@@ -200,5 +224,6 @@ export async function fetchProvider(source, limit) {
   if (source.provider === 'hackernews') return fetchHackerNews(source, limit);
   if (source.provider === 'github') return fetchGitHubNews(source, limit);
   if (source.provider === 'newsapi') return fetchNewsApi(source, limit);
+  if (source.provider === 'cisa_kev') return fetchCisaKev(source, limit);
   throw new Error(`Unsupported intelligence provider: ${source.provider || source.type}`);
 }

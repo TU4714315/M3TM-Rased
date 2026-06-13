@@ -6,6 +6,10 @@
 وHacker News وGitHub وNewsAPI الاختياري، مع تقييم الصلة، استخراج المؤشرات، ذكاء
 المستودعات، قوائم المراقبة، التنبيهات، التقارير والمهام.
 
+يتضمن كذلك **مركز الرصد العربي** في `#/intelligence` مع تصنيف عربي، رصد إقليمي،
+مؤشرات تسريب metadata-only، تقييم مخاطر، تقارير تنفيذية، ومصادر عربية تستخدم
+GDELT كبديل موثوق عند غياب RSS.
+
 ## البنية
 
 - Vite + TypeScript للواجهة.
@@ -59,6 +63,8 @@ npm run test:e2e
 - `news_items`, `news_sources`, `news_bookmarks`, `news_fetch_logs`
 - `repo_intelligence_items`, `watchlists`, `watchlist_hits`, `alerts`
 - `tasks`, `reports`, `repository_ideas`, `audit_logs`
+- `grey_intel_items`, `grey_bookmarks`, `intelligence_reports`
+- `source_reliability_scores`, `entities`, `topics`, `audit_events`
 
 يتضمن مستند `settings/general` اسم المنصة، والتصنيف الافتراضي، ومفتاح تشغيل أو تعطيل مزامنة المصادر.
 
@@ -127,6 +133,9 @@ Firebase Hosting هو الاستضافة الأساسية لـ`m3tm.app`. يجب
 ## مركز الاستخبارات
 
 - الواجهة: `#/news`
+- مركز الرصد العربي: `#/intelligence`
+- المؤشرات الرمادية: `#/grey-intel`
+- التقارير التنفيذية: `#/reports`
 - ذكاء المستودعات: `#/repositories/intelligence`
 - قوائم المراقبة: `#/watchlists`
 - التنبيهات: `#/alerts`
@@ -134,3 +143,11 @@ Firebase Hosting هو الاستضافة الأساسية لـ`m3tm.app`. يجب
 - خدمة API المحلية: `npm run serve:api`
 
 التوثيق الكامل: [docs/news_intelligence_hub.md](docs/news_intelligence_hub.md)
+
+التوثيق العربي:
+
+- [مركز الرصد العربي](docs/arabic_intelligence_hub.md)
+- [المصادر الرمادية](docs/grey_sources_and_leak_indicators.md)
+- [قوائم المراقبة والتنبيهات](docs/watchlists_and_alerts.md)
+- [التقارير](docs/reporting.md)
+- [النشر](docs/deployment.md)

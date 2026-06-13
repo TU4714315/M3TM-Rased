@@ -108,7 +108,7 @@ service cloud.firestore {
       && request.resource.data.url.size() > 0
       && request.resource.data.url.size() <= 2048
       && request.resource.data.provider in [
-        'rss', 'gdelt', 'hackernews', 'github', 'newsapi', 'custom'
+        'rss', 'gdelt', 'hackernews', 'github', 'newsapi', 'cisa_kev', 'custom'
       ]
       && request.resource.data.priority is int
       && request.resource.data.priority >= 0
@@ -127,7 +127,11 @@ service cloud.firestore {
       && request.resource.data.name is string
       && request.resource.data.name.size() > 0
       && request.resource.data.name.size() <= 160
-      && request.resource.data.type in ['mixed', 'news', 'repository']
+      && request.resource.data.type in [
+        'mixed', 'news', 'repository', 'دولة', 'شركة', 'جهة حكومية',
+        'شخص', 'دومين', 'بريد', 'CVE', 'جماعة/فصيل', 'كلمة مفتاحية',
+        'مستودع GitHub', 'مصدر إخباري'
+      ]
       && request.resource.data.keywords is list
       && request.resource.data.keywords.size() <= 100
       && request.resource.data.entities is list
@@ -206,8 +210,13 @@ service cloud.firestore {
       allow read: if authorized();
       allow update: if contentManager()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['summary', 'status', 'updatedAt']);
+          .hasOnly(['summary', 'summary_ar', 'status', 'updatedAt']);
       allow create, delete: if false;
+    }
+
+    match /grey_intel_items/{docId} {
+      allow read: if authorized();
+      allow create, update, delete: if false;
     }
 
     match /news_sources/{docId} {
@@ -221,6 +230,15 @@ service cloud.firestore {
       allow create: if authorized()
         && request.resource.data.userId == request.auth.uid
         && docId == request.auth.uid + '_' + request.resource.data.newsId;
+      allow delete: if authorized() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /grey_bookmarks/{docId} {
+      allow read: if authorized() && resource.data.userId == request.auth.uid;
+      allow create: if authorized()
+        && request.resource.data.userId == request.auth.uid
+        && docId == request.auth.uid + '_' + request.resource.data.itemId;
       allow delete: if authorized() && resource.data.userId == request.auth.uid;
       allow update: if false;
     }
@@ -281,11 +299,23 @@ service cloud.firestore {
         && (contentManager() || resource.data.createdBy == request.auth.uid);
     }
 
+    match /intelligence_reports/{docId} {
+      allow read: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+      allow create: if authorized()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.legalNotice is string;
+      allow update, delete: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+    }
+
     match /intelligence_requests/{docId} {
       allow read: if contentManager();
       allow create: if contentManager()
         && request.resource.data.requestedBy == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['refresh', 'seed-arabic', 'seed-grey']
+        && request.resource.data.scope in ['all', 'arabic', 'grey'];
       allow update, delete: if false;
     }
 
@@ -294,6 +324,28 @@ service cloud.firestore {
       allow create: if contentManager()
         && request.resource.data.actorId == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    match /audit_events/{docId} {
+      allow read: if admin();
+      allow create: if contentManager()
+        && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /source_reliability_scores/{docId} {
+      allow read: if authorized();
+      allow write: if false;
+    }
+
+    match /entities/{docId} {
+      allow read: if authorized();
+      allow write: if false;
+    }
+
+    match /topics/{docId} {
+      allow read: if authorized();
+      allow write: if false;
     }
 
     match /repository_ideas/{docId} {

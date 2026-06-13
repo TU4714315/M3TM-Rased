@@ -8,6 +8,14 @@ import {
   normalizeNewsItem,
 } from './intelligence-lib.mjs';
 import {
+  toArabicIntelligenceItem,
+  toGreyMetadataItem,
+} from './arabic-intelligence-lib.mjs';
+import {
+  buildArabicSeedSources,
+  buildGreySeedSources,
+} from './arabic-intelligence-sources.mjs';
+import {
   DEFAULT_GDELT_QUERIES,
   DEFAULT_GITHUB_QUERIES,
   DEFAULT_INTELLIGENCE_SOURCES,
@@ -28,6 +36,29 @@ const maxItems = Math.max(1, Math.min(100, Number(process.env.NEWS_MAX_ITEMS_PER
 
 function timestamp(date) {
   return admin.firestore.Timestamp.fromDate(date instanceof Date ? date : new Date(date));
+}
+
+async function writeSeedSources(sources, actor = 'system-seed') {
+  const batch = db.batch();
+  for (const source of sources) {
+    const ref = db.collection('news_sources').doc(source.id);
+    const existing = await ref.get();
+    const payload = {
+      ...source,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (!existing.exists) {
+      Object.assign(payload, {
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: actor,
+        lastFetchedAt: null,
+        lastError: '',
+      });
+    }
+    batch.set(ref, payload, { merge: true });
+  }
+  await batch.commit();
+  return sources.length;
 }
 
 async function seedSources() {
@@ -93,25 +124,23 @@ async function seedSources() {
         }]
       : []),
   ];
-  const batch = db.batch();
-  for (const source of sources) {
-    batch.set(db.collection('news_sources').doc(source.id), {
-      ...source,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      createdBy: 'system-seed',
-      lastFetchedAt: null,
-      lastError: '',
-    });
-  }
-  await batch.commit();
+  await writeSeedSources(sources);
   return true;
+}
+
+export async function seedArabicSources(actor = 'system-seed') {
+  return writeSeedSources(buildArabicSeedSources(), actor);
+}
+
+export async function seedGreySources(actor = 'system-seed') {
+  return writeSeedSources(buildGreySeedSources(), actor);
 }
 
 async function createHits(item, itemType, watchlists) {
   for (const watchlistDoc of watchlists) {
     const watchlist = { id: watchlistDoc.id, ...watchlistDoc.data() };
-    if (watchlist.type !== 'mixed' && watchlist.type !== itemType) continue;
+    const typedWatchlist = ['mixed', 'news', 'grey', 'repository'].includes(watchlist.type);
+    if (typedWatchlist && watchlist.type !== 'mixed' && watchlist.type !== itemType) continue;
     const hit = matchWatchlist(item, watchlist);
     if (!hit) continue;
     const id = intelligenceHash([watchlist.id, itemType, item.id]);
@@ -178,9 +207,18 @@ async function syncSource(sourceDoc, watchlists) {
     const rawItems = await fetchProvider(source, maxItems);
     fetchedCount = rawItems.length;
     for (const raw of rawItems) {
-      const item = normalizeNewsItem(raw, source);
+      const normalized = normalizeNewsItem(raw, source);
+      const isGrey = source.intelligence_scope === 'grey'
+        || source.source_type === 'grey_metadata_only'
+        || source.category === 'المصادر الرمادية'
+        || source.data_sensitivity === 'مؤشر تسريب'
+        || source.data_sensitivity === 'محظور التخزين';
+      const item = isGrey
+        ? toGreyMetadataItem(normalized, source)
+        : toArabicIntelligenceItem(normalized, source);
       if (!item.title) continue;
-      const ref = db.collection('news_items').doc(item.id);
+      const collectionName = isGrey ? 'grey_intel_items' : 'news_items';
+      const ref = db.collection(collectionName).doc(item.id);
       if ((await ref.get()).exists) {
         duplicateCount += 1;
         continue;
@@ -193,15 +231,16 @@ async function syncSource(sourceDoc, watchlists) {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       insertedCount += 1;
-      await createHits(item, 'news', watchlists);
-      if (item.provider === 'github') await saveRepository(item, watchlists);
-      if (item.score >= 85) {
+      await createHits(item, isGrey ? 'grey' : 'news', watchlists);
+      if (!isGrey && item.provider === 'github') await saveRepository(item, watchlists);
+      const itemScore = Number(item.score || (item.risk_level === 'حرج' ? 95 : item.risk_level === 'مرتفع' ? 75 : 45));
+      if (itemScore >= 85 || item.risk_level === 'حرج') {
         await db.collection('alerts').doc(`score-${item.id}`).set({
-          type: item.entities.cves.length ? 'cve' : 'high-score',
+          type: isGrey ? 'leak-indicator' : item.entities.cves.length ? 'cve' : 'high-score',
           title: item.title,
-          message: item.summary || item.contentSnippet,
-          severity: item.score >= 95 ? 'critical' : 'high',
-          itemType: 'news',
+          message: item.summary_ar || item.summary || item.contentSnippet_ar || item.contentSnippet,
+          severity: itemScore >= 95 ? 'critical' : 'high',
+          itemType: isGrey ? 'grey' : 'news',
           itemId: item.id,
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -249,6 +288,10 @@ async function syncSource(sourceDoc, watchlists) {
 export async function runIntelligenceSync(options = {}) {
   await seedSources();
   const requests = await db.collection('intelligence_requests').where('status', '==', 'pending').limit(100).get();
+  const requestTypes = new Set(requests.docs.map((doc) => doc.data().type).filter(Boolean));
+  const requestedScopes = new Set(requests.docs.map((doc) => doc.data().scope).filter((value) => value && value !== 'all'));
+  if (process.env.ARABIC_NEWS_ENABLED !== 'false' || requestTypes.has('seed-arabic')) await seedArabicSources();
+  if (process.env.GREY_INTEL_ENABLED !== 'false' || requestTypes.has('seed-grey')) await seedGreySources();
   const requestedProviders = new Set(requests.docs.map((doc) => doc.data().provider).filter(Boolean));
   const force = options.force === true || !requests.empty || Boolean(options.provider);
   const sourceQuery = db.collection('news_sources').where('enabled', '==', true);
@@ -259,6 +302,12 @@ export async function runIntelligenceSync(options = {}) {
   const now = Date.now();
   const filtered = sources.docs.filter((doc) => {
     const source = doc.data();
+    const isGrey = source.intelligence_scope === 'grey'
+      || source.source_type === 'grey_metadata_only'
+      || source.category === 'المصادر الرمادية';
+    const effectiveScopes = options.scope ? new Set([options.scope]) : requestedScopes;
+    if (effectiveScopes.has('arabic') && !effectiveScopes.has('grey') && (isGrey || source.language !== 'ar')) return false;
+    if (effectiveScopes.has('grey') && !effectiveScopes.has('arabic') && !isGrey) return false;
     const providerAllowed = !options.provider && !requestedProviders.size
       ? true
       : source.provider === options.provider || requestedProviders.has(source.provider);

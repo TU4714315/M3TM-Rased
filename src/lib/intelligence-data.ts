@@ -18,6 +18,8 @@ import { db } from './firebase';
 import { cleanText, safeHttpUrl } from './validation';
 import type {
   IntelligenceAlert,
+  ArabicIntelligenceReport,
+  GreyIntelligenceItem,
   IntelligenceNewsItem,
   IntelligenceProvider,
   IntelligenceReport,
@@ -70,6 +72,20 @@ export function subscribeIntelligenceNews(
   failure: (error: Error) => void,
 ): Unsubscribe {
   return subscribeCollection('news_items', 'publishedAt', 500, success, failure);
+}
+
+export function subscribeGreyIntelligence(
+  success: (items: GreyIntelligenceItem[]) => void,
+  failure: (error: Error) => void,
+): Unsubscribe {
+  return subscribeCollection('grey_intel_items', 'publishedAt', 500, success, failure);
+}
+
+export function subscribeIntelligenceReports(
+  success: (items: ArabicIntelligenceReport[]) => void,
+  failure: (error: Error) => void,
+): Unsubscribe {
+  return subscribeCollection('intelligence_reports', 'createdAt', 200, success, failure);
 }
 
 export function subscribeIntelligenceSources(
@@ -203,13 +219,23 @@ export async function toggleNewsBookmark(newsId: string, userId: string, save: b
 }
 
 export async function summarizeNewsItem(item: IntelligenceNewsItem): Promise<void> {
-  const summary = cleanText(item.summary || item.contentSnippet, 900);
+  const summary = cleanText(item.summary_ar || item.summary || item.contentSnippet_ar || item.contentSnippet, 900);
   if (!summary) throw new Error('لا يوجد محتوى كافٍ لإنشاء ملخص.');
   const sentences = summary.split(/(?<=[.!؟])\s+/).filter(Boolean).slice(0, 3);
   await updateDoc(doc(db, 'news_items', item.id), {
     summary: sentences.join(' '),
+    summary_ar: sentences.join(' '),
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function toggleGreyBookmark(itemId: string, userId: string, save: boolean): Promise<void> {
+  const bookmarkRef = doc(db, 'grey_bookmarks', `${userId}_${itemId}`);
+  if (!save) {
+    await deleteDoc(bookmarkRef);
+    return;
+  }
+  await setDoc(bookmarkRef, { itemId, userId, createdAt: serverTimestamp() });
 }
 
 export async function createTaskFromItem(
@@ -237,6 +263,26 @@ export async function createReportFromNews(
     newsIds: input.newsIds.slice(0, 100),
     repositoryIds: input.repositoryIds.slice(0, 100),
     content: cleanText(input.content, 50_000),
+    createdBy: input.createdBy,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function createArabicIntelligenceReport(
+  input: Omit<ArabicIntelligenceReport, 'id' | 'createdAt' | 'updatedAt'>,
+): Promise<void> {
+  await addDoc(collection(db, 'intelligence_reports'), {
+    type: input.type,
+    title: cleanText(input.title, 220),
+    coverage: cleanText(input.coverage, 1000),
+    executiveSummary: cleanText(input.executiveSummary, 5000),
+    content: cleanText(input.content, 50_000),
+    newsIds: input.newsIds.slice(0, 200),
+    greyIntelIds: input.greyIntelIds.slice(0, 200),
+    repositoryIds: input.repositoryIds.slice(0, 200),
+    riskLevel: input.riskLevel,
+    legalNotice: cleanText(input.legalNotice, 1000),
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -286,10 +332,13 @@ export async function markAllAlertsRead(alerts: IntelligenceAlert[]): Promise<vo
 export async function requestIntelligenceRefresh(
   requestedBy: string,
   provider = '',
+  scope: 'all' | 'arabic' | 'grey' = 'all',
+  type: 'refresh' | 'seed-arabic' | 'seed-grey' = 'refresh',
 ): Promise<void> {
   await addDoc(collection(db, 'intelligence_requests'), {
-    type: 'refresh',
+    type,
     provider: cleanText(provider, 40),
+    scope,
     requestedBy,
     status: 'pending',
     requestedAt: serverTimestamp(),

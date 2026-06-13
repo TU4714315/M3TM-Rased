@@ -53,6 +53,11 @@ beforeAll(async () => {
       score: 80,
       saved: false,
     });
+    await setDoc(doc(firestore, 'grey_intel_items', 'grey-1'), {
+      title: 'Public indicator',
+      publishedAt: new Date(),
+      legal_warning: 'Metadata only',
+    });
   });
 });
 
@@ -240,6 +245,36 @@ describe('Firestore rules', () => {
         createdBy: 'user-1',
         createdAt: new Date(),
         updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it('keeps grey ingestion server-only and allows personal grey bookmarks', async () => {
+    const firestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(getDoc(doc(firestore, 'grey_intel_items', 'grey-1')));
+    await assertFails(setDoc(doc(firestore, 'grey_intel_items', 'blocked'), { title: 'Blocked' }));
+    await assertSucceeds(
+      setDoc(doc(firestore, 'grey_bookmarks', 'user-1_grey-1'), {
+        userId: 'user-1',
+        itemId: 'grey-1',
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it('allows users to create their own Arabic intelligence reports', async () => {
+    const firestore = environment
+      .authenticatedContext('user-1', { email: 'user@example.com' })
+      .firestore();
+    await assertSucceeds(
+      setDoc(doc(firestore, 'intelligence_reports', 'report-1'), {
+        type: 'موجز استخباري إقليمي',
+        title: 'موجز',
+        legalNotice: 'مصادر عامة فقط',
+        createdBy: 'user-1',
+        createdAt: new Date(),
       }),
     );
   });

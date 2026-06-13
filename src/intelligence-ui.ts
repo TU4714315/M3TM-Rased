@@ -1,6 +1,7 @@
 import { canManageContent } from './lib/permissions';
 import { friendlyError } from './lib/errors';
 import {
+  createArabicIntelligenceReport,
   createReportFromNews,
   createTaskFromItem,
   deleteIntelligenceSource,
@@ -12,9 +13,12 @@ import {
   saveRepository,
   saveWatchlist,
   summarizeNewsItem,
+  toggleGreyBookmark,
   toggleNewsBookmark,
 } from './lib/intelligence-data';
 import type {
+  ArabicIntelligenceReport,
+  GreyIntelligenceItem,
   IntelligenceAlert,
   IntelligenceNewsItem,
   IntelligenceProvider,
@@ -37,6 +41,8 @@ export interface IntelligenceUiState {
   alerts: IntelligenceAlert[];
   fetchLogs: NewsFetchLog[];
   bookmarks: Set<string>;
+  greyIntel: GreyIntelligenceItem[];
+  reports: ArabicIntelligenceReport[];
 }
 
 type Message = (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -46,6 +52,16 @@ function element(tag: string, className = '', text = ''): HTMLElement {
   item.className = className;
   item.textContent = text;
   return item;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character] || character);
 }
 
 function formatDate(value: unknown): string {
@@ -69,6 +85,7 @@ function providerLabel(provider: IntelligenceProvider): string {
     hackernews: 'Hacker News',
     github: 'GitHub',
     newsapi: 'NewsAPI',
+    cisa_kev: 'CISA KEV',
     custom: 'مخصص',
   };
   return labels[provider];
@@ -104,13 +121,16 @@ function newsCard(
     element('span', 'provider-badge', providerLabel(item.provider)),
     element('span', '', item.source),
     element('span', '', item.category),
+    element('span', '', item.country || item.region || 'إقليمي'),
+    element('span', 'risk-label', item.risk_level || 'متوسط'),
+    element('span', '', item.importance || 'متوسطة'),
   );
   header.append(identity, score);
 
   const title = element('h3', '', item.title);
-  const summary = element('p', 'intel-summary', item.summary || item.contentSnippet || 'لا يوجد ملخص متاح.');
+  const summary = element('p', 'intel-summary', item.summary_ar || item.summary || item.contentSnippet_ar || item.contentSnippet || 'لا يوجد ملخص متاح.');
   const tags = element('div', 'tag-list');
-  item.tags.slice(0, 8).forEach((tag) => tags.append(element('span', '', tag)));
+  (item.tags_ar || item.tags).slice(0, 8).forEach((tag) => tags.append(element('span', '', tag)));
 
   const details = document.createElement('details');
   details.className = 'intel-details';
@@ -327,6 +347,255 @@ function renderSourceAdmin(
   form.querySelector('#intel-source-cancel')?.addEventListener('click', () => form.reset());
 }
 
+const legalNotice = 'هذا التقرير يعتمد على مصادر عامة ومؤشرات منشورة. لا يحتوي التقرير على بيانات مسربة خام أو كلمات مرور أو معلومات شخصية حساسة.';
+
+function executiveReportContent(
+  news: IntelligenceNewsItem[],
+  grey: GreyIntelligenceItem[],
+): string {
+  const newsLines = news.slice(0, 30).map((item) =>
+    `- ${item.title} | ${item.source} | ${item.risk_level || 'متوسط'} | ${item.url}`,
+  );
+  const greyLines = grey.slice(0, 20).map((item) =>
+    `- ${item.title} | ${item.source} | ${item.data_sensitivity} | ${item.risk_level} | ${item.url}`,
+  );
+  return [
+    '# موجز استخباري إقليمي',
+    `تاريخ التقرير: ${new Date().toLocaleString('ar-SA')}`,
+    'نطاق التغطية: الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني.',
+    '',
+    '## الملخص التنفيذي',
+    `جرى تحليل ${news.length} خبر و${grey.length} مؤشر عام. الأولوية للأحداث الحرجة والمرتفعة.`,
+    '',
+    '## أهم المؤشرات',
+    ...newsLines,
+    '',
+    '## التسريبات والمصادر الرمادية',
+    ...(greyLines.length ? greyLines : ['- لا توجد مؤشرات عامة مسجلة حاليًا.']),
+    '',
+    '## التوصيات التنفيذية',
+    '- التحقق من المصادر الأولية قبل اتخاذ قرار.',
+    '- متابعة العناصر الحرجة عبر قوائم المراقبة.',
+    '- عدم تداول أي بيانات شخصية أو سجلات مسربة خام.',
+    '',
+    '## تنبيه قانوني',
+    legalNotice,
+  ].join('\n');
+}
+
+async function requestOperation(
+  state: IntelligenceUiState,
+  setMessage: Message,
+  type: 'refresh' | 'seed-arabic' | 'seed-grey',
+  scope: 'all' | 'arabic' | 'grey',
+  success: string,
+): Promise<void> {
+  try {
+    await requestIntelligenceRefresh(state.userId, '', scope, type);
+    setMessage(success, 'success');
+  } catch (error) {
+    setMessage(friendlyError(error), 'error');
+  }
+}
+
+export function renderArabicIntelligenceHub(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  const manager = canManageContent(state.role);
+  const critical = state.news.filter((item) => item.risk_level === 'حرج').length
+    + state.greyIntel.filter((item) => item.risk_level === 'حرج').length;
+  const categories: Array<[string, number]> = [
+    ['أخبار عاجلة', state.news.filter((item) => item.importance === 'عاجلة').length],
+    ['الخليج', state.news.filter((item) => item.category === 'الخليج').length],
+    ['إيران', state.news.filter((item) => item.category === 'إيران').length],
+    ['الضربات والهجمات', state.news.filter((item) => item.category === 'الضربات والهجمات').length],
+    ['التجسس والاستخبارات', state.news.filter((item) => item.category === 'التجسس والاستخبارات').length],
+    ['التسريبات', state.greyIntel.length],
+    ['المصادر الرمادية', state.greyIntel.length],
+    ['لبنان والعراق', state.news.filter((item) => ['لبنان', 'العراق'].includes(item.category)).length],
+    ['باكستان', state.news.filter((item) => item.category === 'باكستان').length],
+    ['البحر الأحمر', state.news.filter((item) => item.category === 'البحر الأحمر').length],
+    ['مضيق هرمز', state.news.filter((item) => item.category === 'مضيق هرمز').length],
+    ['الحرس الثوري', state.news.filter((item) => item.category === 'الحرس الثوري الإيراني').length],
+    ['حزب الله', state.news.filter((item) => item.category === 'حزب الله').length],
+    ['الحوثيون', state.news.filter((item) => item.category === 'الحوثيون').length],
+    ['الأمن السيبراني', state.news.filter((item) => item.category === 'الأمن السيبراني').length],
+    ['الذكاء الاصطناعي', state.news.filter((item) => item.category === 'الذكاء الاصطناعي').length],
+    ['المستودعات المهمة', state.repositories.filter((item) => item.score >= 70).length],
+    ['التنبيهات', state.alerts.filter((item) => !item.read).length],
+  ];
+  view.innerHTML = `
+    <section class="arabic-hero">
+      <div><p class="eyebrow">M3TM RASED</p><h2>مركز الرصد العربي</h2>
+      <p>لوحة تحليل محايدة للأخبار الإقليمية، المخاطر، المؤشرات العامة، والمستودعات التقنية.</p></div>
+      <div class="risk-orb ${critical ? 'critical' : ''}"><span>المخاطر الحرجة</span><strong>${critical}</strong></div>
+    </section>
+    <section class="hub-actions">
+      <button class="button secondary" id="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر العربية</button>
+      <button class="button secondary" id="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
+      <button class="button primary" id="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
+      <button class="button primary" id="fetch-grey" ${manager ? '' : 'disabled'}>جلب مؤشرات التسريبات</button>
+      <button class="button secondary" id="create-executive-report">إنشاء تقرير تنفيذي</button>
+      <a class="button secondary" href="#/sources">إدارة المصادر</a>
+    </section>
+    <section class="risk-dashboard">
+      ${categories.map(([name, value]) => `<article><span>${name}</span><strong>${value}</strong></article>`).join('')}
+    </section>
+    <section class="dashboard-grid">
+      <article class="panel"><div class="panel-heading"><h3>أحدث الأخبار العربية</h3><a href="#/news">عرض الكل</a></div>
+        <div class="compact-list">${state.news.slice(0, 8).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.source)} · ${escapeHtml(item.risk_level || 'متوسط')}</small></div><span class="score-badge ${scoreClass(item.score)}">${item.score}</span></div>`).join('') || '<p class="empty">ابدأ بتهيئة المصادر ثم اطلب الجلب.</p>'}</div>
+      </article>
+      <article class="panel"><div class="panel-heading"><h3>مؤشرات فقط</h3><a href="#/grey-intel">عرض المؤشرات</a></div>
+        <p class="legal-warning">${legalNotice}</p>
+        <div class="compact-list">${state.greyIntel.slice(0, 6).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small></div></div>`).join('') || '<p class="empty">لا توجد مؤشرات عامة بعد.</p>'}</div>
+      </article>
+    </section>
+  `;
+  view.querySelector('#seed-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-arabic', 'arabic', 'تم تسجيل تهيئة المصادر العربية وسيبدأ جلبها.'));
+  view.querySelector('#seed-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-grey', 'grey', 'تم تسجيل تهيئة المصادر الرمادية الآمنة.'));
+  view.querySelector('#fetch-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'arabic', 'تم تسجيل طلب جلب الأخبار العربية.'));
+  view.querySelector('#fetch-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'grey', 'تم تسجيل طلب جلب مؤشرات التسريبات العامة.'));
+  view.querySelector('#create-executive-report')?.addEventListener('click', async () => {
+    try {
+      await createArabicIntelligenceReport({
+        type: 'موجز استخباري إقليمي',
+        title: `الموجز التنفيذي - ${new Date().toLocaleDateString('ar-SA')}`,
+        coverage: 'الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني',
+        executiveSummary: `تحليل ${state.news.length} خبر و${state.greyIntel.length} مؤشر عام.`,
+        content: executiveReportContent(state.news, state.greyIntel),
+        newsIds: state.news.slice(0, 100).map((item) => item.id),
+        greyIntelIds: state.greyIntel.slice(0, 100).map((item) => item.id),
+        repositoryIds: state.repositories.filter((item) => item.saved).map((item) => item.id),
+        riskLevel: critical ? 'حرج' : 'متوسط',
+        legalNotice,
+        createdBy: state.userId,
+      });
+      setMessage('تم إنشاء مسودة التقرير التنفيذي العربي.', 'success');
+    } catch (error) {
+      setMessage(friendlyError(error), 'error');
+    }
+  });
+}
+
+export function renderGreyIntelligence(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">مؤشرات عامة مفتوحة</p><h2>المصادر الرمادية والتسريبات</h2>
+      <p class="muted">تُحفظ بيانات وصفية ومؤشرات منشورة فقط. لا تُخزّن سجلات مسربة أو كلمات مرور أو بيانات شخصية.</p></div></section>
+    <section class="panel intel-filter-panel"><div class="intel-filters">
+      <label>كلمة البحث<input id="grey-search" type="search" /></label>
+      <label>الدولة<select id="grey-country"><option value="">الكل</option></select></label>
+      <label>مستوى الخطر<select id="grey-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
+      <label>حساسية البيانات<select id="grey-sensitivity"><option value="">الكل</option><option>عام</option><option>حساس</option><option>مؤشر تسريب</option><option>تسريب محتمل</option><option>محظور التخزين</option></select></label>
+    </div></section>
+    <p class="legal-warning">${legalNotice}</p>
+    <section id="grey-results" class="intel-grid"></section>
+  `;
+  const country = view.querySelector<HTMLSelectElement>('#grey-country');
+  [...new Set(state.greyIntel.map((item) => item.country).filter(Boolean))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    country?.append(option);
+  });
+  const draw = () => {
+    const search = view.querySelector<HTMLInputElement>('#grey-search')?.value.toLowerCase() || '';
+    const risk = view.querySelector<HTMLSelectElement>('#grey-risk')?.value || '';
+    const sensitivity = view.querySelector<HTMLSelectElement>('#grey-sensitivity')?.value || '';
+    const items = state.greyIntel.filter((item) =>
+      `${item.title} ${item.summary_ar} ${item.source} ${item.tags_ar.join(' ')}`.toLowerCase().includes(search)
+      && (!country?.value || item.country === country.value)
+      && (!risk || item.risk_level === risk)
+      && (!sensitivity || item.data_sensitivity === sensitivity),
+    );
+    const container = view.querySelector('#grey-results');
+    if (!container) return;
+    container.textContent = '';
+    items.forEach((item) => {
+      const card = element('article', 'intel-card grey-card');
+      const header = element('div', 'intel-card-header');
+      header.append(element('span', 'provider-badge', 'مؤشرات فقط'), element('span', 'risk-label', item.risk_level));
+      const meta = element('div', 'tag-list');
+      [item.source_type, item.data_sensitivity, item.leaked_data_type, item.country].filter(Boolean).forEach((value) => meta.append(element('span', '', value)));
+      if (item.affected_entities.length) {
+        meta.append(element('span', '', `الجهات المتأثرة: ${item.affected_entities.slice(0, 4).join('، ')}`));
+      }
+      const actions = element('div', 'intel-actions');
+      const open = element('a', 'button secondary compact', 'فتح المصدر') as HTMLAnchorElement;
+      open.href = item.url;
+      open.target = '_blank';
+      open.rel = 'noopener noreferrer';
+      const save = element('button', 'button secondary compact', 'حفظ') as HTMLButtonElement;
+      save.addEventListener('click', async () => {
+        try {
+          await toggleGreyBookmark(item.id, state.userId, true);
+          setMessage('تم حفظ المؤشر.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      });
+      const task = element('button', 'button secondary compact', 'إنشاء مهمة متابعة') as HTMLButtonElement;
+      task.addEventListener('click', () => void createTaskFromItem({
+        title: `متابعة مؤشر: ${item.title}`,
+        description: `${item.summary_ar}\n\n${item.legal_warning}`,
+        sourceType: 'news',
+        sourceIds: [item.id],
+        createdBy: state.userId,
+      }).then(() => setMessage('تم إنشاء مهمة المتابعة.', 'success')).catch((error) => setMessage(friendlyError(error), 'error')));
+      const report = element('button', 'button primary compact', 'إنشاء تقرير') as HTMLButtonElement;
+      report.addEventListener('click', async () => {
+        try {
+          await createArabicIntelligenceReport({
+            type: 'تقرير التسريبات والمصادر الرمادية',
+            title: `تقرير مؤشر: ${item.title}`,
+            coverage: `${item.country || item.region} · ${formatDate(item.publishedAt)}`,
+            executiveSummary: item.summary_ar,
+            content: executiveReportContent([], [item]),
+            newsIds: [],
+            greyIntelIds: [item.id],
+            repositoryIds: [],
+            riskLevel: item.risk_level,
+            legalNotice,
+            createdBy: state.userId,
+          });
+          setMessage('تم إنشاء تقرير المؤشر.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      });
+      actions.append(open, save, task, report);
+      card.append(header, element('h3', '', item.title), element('p', 'intel-summary', item.summary_ar), meta, element('p', 'legal-warning compact-warning', item.legal_warning), actions);
+      container.append(card);
+    });
+    if (!items.length) container.append(element('p', 'empty panel', 'لا توجد مؤشرات مطابقة. هيّئ المصادر الرمادية ثم اطلب الجلب.'));
+  };
+  view.querySelectorAll('#grey-search, #grey-country, #grey-risk, #grey-sensitivity').forEach((control) => control.addEventListener('input', draw));
+  draw();
+}
+
+export function renderIntelligenceReports(view: HTMLElement, state: IntelligenceUiState): void {
+  view.innerHTML = `
+    <section class="page-heading"><div><p class="eyebrow">تقارير عربية محكومة بالمصادر</p><h2>التقارير التنفيذية</h2>
+      <p class="muted">${legalNotice}</p></div></section>
+    <section class="report-list"></section>
+  `;
+  const list = view.querySelector('.report-list');
+  state.reports.forEach((report) => {
+    const card = element('article', 'panel report-card');
+    card.append(element('span', 'provider-badge', report.type), element('h3', '', report.title), element('p', 'muted', report.executiveSummary), element('small', '', `${report.riskLevel} · ${formatDate(report.createdAt)}`));
+    const details = document.createElement('details');
+    details.append(element('summary', '', 'عرض التقرير'), element('pre', 'report-content', report.content));
+    card.append(details);
+    list?.append(card);
+  });
+  if (!state.reports.length) list?.append(element('p', 'empty panel', 'لم تُنشأ تقارير تنفيذية بعد.'));
+}
+
 export function renderNewsIntelligence(
   view: HTMLElement,
   state: IntelligenceUiState,
@@ -334,7 +603,7 @@ export function renderNewsIntelligence(
 ): void {
   view.innerHTML = `
     <section class="page-heading">
-      <div><p class="eyebrow">NEWS INTELLIGENCE HUB</p><h2>مركز الأخبار والاستخبارات</h2>
+      <div><p class="eyebrow">الأخبار العربية</p><h2>مركز الأخبار والاستخبارات</h2>
       <p class="muted">رصد متعدد المصادر مع تقييم وكيانات وتقارير قابلة للتنفيذ.</p></div>
       ${canManageContent(state.role) ? '<button class="button primary compact" id="intelligence-refresh" type="button">طلب تحديث شامل</button>' : ''}
     </section>
@@ -348,8 +617,9 @@ export function renderNewsIntelligence(
       <div class="intel-filters">
         <label>بحث<input id="intel-search" type="search" placeholder="CVE، OSINT، شركة، تقنية..." /></label>
         <label>التصنيف<select id="intel-category"><option value="">الكل</option></select></label>
+        <label>الدولة<select id="intel-country"><option value="">الكل</option></select></label>
         <label>المزود<select id="intel-provider"><option value="">الكل</option></select></label>
-        <label>الحد الأدنى<input id="intel-score" type="number" min="0" max="100" value="0" /></label>
+        <label>مستوى الخطر<select id="intel-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
         <label class="toggle"><input id="intel-bookmarked" type="checkbox" /><span>المحفوظة فقط</span></label>
       </div>
       <div class="card-actions"><button class="button secondary compact" id="bulk-report" type="button">تقرير من المحدد</button>
@@ -361,6 +631,7 @@ export function renderNewsIntelligence(
   renderSourceAdmin(view, state, setMessage);
   const selected = new Set<string>();
   const category = view.querySelector<HTMLSelectElement>('#intel-category');
+  const country = view.querySelector<HTMLSelectElement>('#intel-country');
   const provider = view.querySelector<HTMLSelectElement>('#intel-provider');
   [...new Set(state.news.map((item) => item.category))].sort().forEach((value) => {
     const option = document.createElement('option');
@@ -374,6 +645,12 @@ export function renderNewsIntelligence(
     option.textContent = providerLabel(value);
     provider?.append(option);
   });
+  [...new Set(state.news.map((item) => item.country).filter(Boolean))].sort().forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value || '';
+    option.textContent = value || '';
+    country?.append(option);
+  });
 
   const draw = () => {
     const container = view.querySelector('#intelligence-results');
@@ -381,14 +658,15 @@ export function renderNewsIntelligence(
     const search = view.querySelector<HTMLInputElement>('#intel-search')?.value.trim().toLowerCase() || '';
     const selectedCategory = category?.value || '';
     const selectedProvider = provider?.value || '';
-    const minScore = Number(view.querySelector<HTMLInputElement>('#intel-score')?.value || 0);
+    const selectedRisk = view.querySelector<HTMLSelectElement>('#intel-risk')?.value || '';
     const bookmarksOnly = view.querySelector<HTMLInputElement>('#intel-bookmarked')?.checked || false;
     const items = state.news.filter((item) => {
-      const haystack = `${item.title} ${item.summary} ${item.contentSnippet} ${item.source} ${item.tags.join(' ')}`.toLowerCase();
+      const haystack = `${item.title} ${item.summary_ar || item.summary} ${item.contentSnippet_ar || item.contentSnippet} ${item.source} ${(item.tags_ar || item.tags).join(' ')}`.toLowerCase();
       return (!search || haystack.includes(search))
         && (!selectedCategory || item.category === selectedCategory)
         && (!selectedProvider || item.provider === selectedProvider)
-        && item.score >= minScore
+        && (!country?.value || item.country === country.value)
+        && (!selectedRisk || item.risk_level === selectedRisk)
         && (!bookmarksOnly || state.bookmarks.has(item.id));
     });
     container.textContent = '';
@@ -397,7 +675,7 @@ export function renderNewsIntelligence(
     const count = view.querySelector('#intel-result-count');
     if (count) count.textContent = `${items.length} نتيجة`;
   };
-  view.querySelectorAll('#intel-search, #intel-category, #intel-provider, #intel-score, #intel-bookmarked')
+  view.querySelectorAll('#intel-search, #intel-category, #intel-country, #intel-provider, #intel-risk, #intel-bookmarked')
     .forEach((control) => control.addEventListener('input', draw));
   draw();
 
@@ -437,7 +715,7 @@ export function renderRepositoryIntelligence(
   setMessage: Message,
 ): void {
   view.innerHTML = `
-    <section class="page-heading"><div><p class="eyebrow">REPOSITORY INTELLIGENCE</p>
+    <section class="page-heading"><div><p class="eyebrow">مراقبة المستودعات العامة</p>
       <h2>ذكاء المستودعات العامة</h2><p class="muted">أفكار معمارية ومنتجات مفتوحة المصدر دون نسخ شفرة غير مرخصة.</p></div></section>
     <section class="panel intel-filter-panel">
       <div class="intel-filters repo-filters">
@@ -532,13 +810,13 @@ export function renderWatchlists(
   setMessage: Message,
 ): void {
   view.innerHTML = `
-    <section class="page-heading"><div><p class="eyebrow">WATCHLISTS</p><h2>قوائم المراقبة</h2>
+    <section class="page-heading"><div><p class="eyebrow">رصد الكيانات والموضوعات</p><h2>قوائم المراقبة</h2>
       <p class="muted">راقب الكلمات والكيانات والثغرات والمستودعات تلقائيًا.</p></div></section>
     <section class="panel">
       <form id="watchlist-form" class="form-grid">
         <input name="id" type="hidden" />
         <label>الاسم<input name="name" required maxlength="160" /></label>
-        <label>النوع<select name="type"><option value="mixed">أخبار ومستودعات</option><option value="news">أخبار</option><option value="repository">مستودعات</option></select></label>
+        <label>النوع<select name="type"><option value="mixed">أخبار ومستودعات</option><option value="دولة">دولة</option><option value="شركة">شركة</option><option value="جهة حكومية">جهة حكومية</option><option value="شخص">شخص</option><option value="دومين">دومين</option><option value="بريد">بريد</option><option value="CVE">CVE</option><option value="جماعة/فصيل">جماعة/فصيل</option><option value="كلمة مفتاحية">كلمة مفتاحية</option><option value="مستودع GitHub">مستودع GitHub</option><option value="مصدر إخباري">مصدر إخباري</option></select></label>
         <label class="wide">الكلمات المفتاحية<textarea name="keywords" rows="3" placeholder="CVE, شركة, نطاق, تقنية"></textarea></label>
         <label class="wide">الكيانات<textarea name="entities" rows="2" placeholder="example.com, CVE-2026-1234"></textarea></label>
         <label class="toggle"><input name="enabled" type="checkbox" checked /><span>مفعلة</span></label>
@@ -624,7 +902,7 @@ export function renderAlerts(
 ): void {
   const unread = state.alerts.filter((alert) => !alert.read).length;
   view.innerHTML = `
-    <section class="page-heading"><div><p class="eyebrow">ALERTS</p><h2>التنبيهات</h2>
+    <section class="page-heading"><div><p class="eyebrow">تنبيهات المخاطر والتطابقات</p><h2>التنبيهات</h2>
       <p class="muted">${unread} تنبيه غير مقروء</p></div>
       <button class="button secondary compact" id="alerts-read-all" type="button">تعليم الكل كمقروء</button>
     </section>

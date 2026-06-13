@@ -1,10 +1,17 @@
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import admin from 'firebase-admin';
+import { pathToFileURL } from 'node:url';
 import { normalizeNewsItem, extractRepositoryIdeas, intelligenceHash } from '../scripts/intelligence-lib.mjs';
+import { assertPublicUrl } from '../scripts/feed-lib.mjs';
+import { buildArabicExecutiveReport, LEGAL_NOTICE } from '../scripts/arabic-intelligence-lib.mjs';
 import { createSummaryService } from '../scripts/ai-summary.mjs';
 import { fetchGitHubNews } from '../scripts/provider-client.mjs';
-import { runIntelligenceSync } from '../scripts/sync-intelligence.mjs';
+import {
+  runIntelligenceSync,
+  seedArabicSources,
+  seedGreySources,
+} from '../scripts/sync-intelligence.mjs';
 
 const projectId = process.env.FIREBASE_PROJECT_ID || 'm3tm-rased-07246627-7b0bf';
 if (!admin.apps.length) {
@@ -22,17 +29,42 @@ const allowedOrigins = new Set(
     .map((value) => value.trim())
     .filter(Boolean),
 );
+const requestWindows = new Map();
 
 function json(response, status, payload, origin = '') {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains',
     ...(origin && allowedOrigins.has(origin)
       ? { 'access-control-allow-origin': origin, vary: 'origin' }
       : {}),
   });
   response.end(JSON.stringify(payload));
+}
+
+function enforceRateLimit(request, pathname) {
+  const forwarded = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const identity = forwarded || request.socket.remoteAddress || 'unknown';
+  const expensive = /\/(?:fetch|refresh|seed|search)/.test(pathname);
+  const limit = expensive ? 20 : 180;
+  const now = Date.now();
+  const key = `${identity}:${expensive ? 'expensive' : 'standard'}`;
+  const current = requestWindows.get(key);
+  if (!current || now - current.startedAt >= 60_000) {
+    requestWindows.set(key, { startedAt: now, count: 1 });
+    if (requestWindows.size > 10_000) {
+      for (const [windowKey, value] of requestWindows) {
+        if (now - value.startedAt >= 60_000) requestWindows.delete(windowKey);
+      }
+    }
+    return;
+  }
+  current.count += 1;
+  if (current.count > limit) {
+    throw Object.assign(new Error('Rate limit exceeded.'), { status: 429 });
+  }
 }
 
 function serialize(value) {
@@ -116,13 +148,16 @@ async function listNews(url, user = null) {
     bookmarkedIds = new Set(bookmarks.docs.map((doc) => doc.data().newsId));
   }
   const filtered = all.filter((item) => {
-    const text = `${item.title} ${item.summary} ${item.contentSnippet} ${(item.tags || []).join(' ')}`.toLowerCase();
+    const text = `${item.title} ${item.summary_ar || item.summary} ${item.contentSnippet_ar || item.contentSnippet} ${(item.tags_ar || item.tags || []).join(' ')}`.toLowerCase();
     const published = new Date(item.publishedAt);
     return (!q || text.includes(q))
       && (!url.searchParams.get('category') || item.category === url.searchParams.get('category'))
       && (!url.searchParams.get('source') || item.source === url.searchParams.get('source'))
       && (!url.searchParams.get('provider') || item.provider === url.searchParams.get('provider'))
       && (!url.searchParams.get('language') || item.language === url.searchParams.get('language'))
+      && (!url.searchParams.get('country') || item.country === url.searchParams.get('country'))
+      && (!url.searchParams.get('region') || item.region === url.searchParams.get('region'))
+      && (!url.searchParams.get('risk_level') || item.risk_level === url.searchParams.get('risk_level'))
       && Number(item.score || 0) >= minScore
       && (!from || published >= new Date(from))
       && (!to || published <= new Date(to))
@@ -134,9 +169,31 @@ async function listNews(url, user = null) {
   };
 }
 
+async function listGreyIntel(url) {
+  const { page, limit } = pageParams(url);
+  const all = await listCollection('grey_intel_items', 'publishedAt');
+  const q = (url.searchParams.get('q') || '').toLowerCase();
+  const filtered = all.filter((item) => {
+    const text = `${item.title} ${item.summary_ar} ${item.source} ${(item.tags_ar || []).join(' ')} ${(item.affected_entities || []).join(' ')}`.toLowerCase();
+    return (!q || text.includes(q))
+      && (!url.searchParams.get('category') || item.category === url.searchParams.get('category'))
+      && (!url.searchParams.get('country') || item.country === url.searchParams.get('country'))
+      && (!url.searchParams.get('risk_level') || item.risk_level === url.searchParams.get('risk_level'))
+      && (!url.searchParams.get('data_sensitivity') || item.data_sensitivity === url.searchParams.get('data_sensitivity'));
+  });
+  return {
+    items: filtered.slice((page - 1) * limit, page * limit),
+    pagination: { page, limit, total: filtered.length },
+  };
+}
+
 function watchlistPayload(input, userId, existing = null) {
   const type = String(input.type || existing?.type || 'mixed');
-  if (!['mixed', 'news', 'repository'].includes(type)) {
+  if (![
+    'mixed', 'news', 'repository', 'دولة', 'شركة', 'جهة حكومية', 'شخص',
+    'دومين', 'بريد', 'CVE', 'جماعة/فصيل', 'كلمة مفتاحية',
+    'مستودع GitHub', 'مصدر إخباري',
+  ].includes(type)) {
     throw Object.assign(new Error('Unsupported watchlist type.'), { status: 400 });
   }
   const strings = (value) =>
@@ -160,27 +217,54 @@ function watchlistPayload(input, userId, existing = null) {
 
 async function sourcePayload(input, userId, existing = null) {
   const provider = String(input.provider || input.type || existing?.provider || 'rss');
-  if (!['rss', 'gdelt', 'hackernews', 'github', 'newsapi', 'custom'].includes(provider)) {
+  if (!['rss', 'gdelt', 'hackernews', 'github', 'newsapi', 'cisa_kev', 'custom'].includes(provider)) {
     throw Object.assign(new Error('Unsupported provider.'), { status: 400 });
   }
   const url = new URL(String(input.url || existing?.url || ''));
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw Object.assign(new Error('A safe HTTP(S) URL is required.'), { status: 400 });
   }
+  await assertPublicUrl(url.toString());
   return {
     name: String(input.name || existing?.name || '').trim().slice(0, 160),
     type: provider,
     provider,
+    source_type: String(input.source_type || existing?.source_type || (provider === 'gdelt' ? 'gdelt_query' : 'rss')).slice(0, 40),
     url: url.toString(),
     query: String(input.query ?? existing?.query ?? '').trim().slice(0, 300),
     category: String(input.category || existing?.category || 'General').trim().slice(0, 100),
     language: String(input.language || existing?.language || 'en').trim().slice(0, 12),
     priority: Math.max(0, Math.min(100, Math.round(Number(input.priority ?? existing?.priority ?? 75)))),
+    reliability_score: Math.max(0, Math.min(100, Math.round(Number(input.reliability_score ?? existing?.reliability_score ?? 70)))),
     enabled: Boolean(input.enabled ?? existing?.enabled ?? true),
     fetchIntervalMinutes: Math.max(15, Math.min(1440, Math.round(Number(input.fetchIntervalMinutes ?? existing?.fetchIntervalMinutes ?? 60)))),
     createdBy: existing?.createdBy || userId,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+}
+
+async function createArabicReport(user, input, presetItems = []) {
+  const greyItems = presetItems.filter((item) => item.data_sensitivity || item.source_type === 'grey_metadata_only');
+  const newsItems = presetItems.filter((item) => !greyItems.includes(item));
+  const generated = buildArabicExecutiveReport({
+    type: input.type || 'موجز استخباري إقليمي',
+    title: input.title || `موجز استخباري - ${new Date().toISOString().slice(0, 10)}`,
+    coverage: input.coverage || 'آخر 7 أيام',
+    items: newsItems,
+    greyItems,
+    riskLevel: input.riskLevel,
+  });
+  const ref = await db.collection('intelligence_reports').add({
+    ...generated,
+    newsIds: Array.isArray(input.newsIds) ? input.newsIds.slice(0, 200) : [],
+    greyIntelIds: Array.isArray(input.greyIntelIds) ? input.greyIntelIds.slice(0, 200) : [],
+    repositoryIds: Array.isArray(input.repositoryIds) ? input.repositoryIds.slice(0, 200) : [],
+    legalNotice: LEGAL_NOTICE,
+    createdBy: user.uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return ref.id;
 }
 
 async function createTask(user, input) {
@@ -225,6 +309,7 @@ async function handler(request, response) {
     return;
   }
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+  enforceRateLimit(request, url.pathname);
   if (url.pathname === '/health') return json(response, 200, { status: 'ok', projectId }, origin);
   if (request.method === 'POST' && url.pathname === '/internal/scheduler/refresh') {
     if (!validSchedulerSecret(request)) {
@@ -237,8 +322,37 @@ async function handler(request, response) {
   if (request.method === 'GET' && url.pathname === '/news') {
     return json(response, 200, await listNews(url, user), origin);
   }
+  if (request.method === 'POST' && url.pathname === '/news/sources/seed-arabic') {
+    requireRole(user, ['admin']);
+    const count = await seedArabicSources(user.uid);
+    await audit(user, 'source.seed-arabic', 'news_source', 'arabic-defaults', { count });
+    return json(response, 200, { seeded: count }, origin);
+  }
+  if (request.method === 'POST' && url.pathname === '/news/fetch-arabic') {
+    requireRole(user, ['admin']);
+    const result = await runIntelligenceSync({ force: true, scope: 'arabic' });
+    await audit(user, 'intelligence.fetch-arabic', 'system', 'arabic');
+    return json(response, 200, result, origin);
+  }
+  if (request.method === 'GET' && url.pathname === '/news/arabic-dashboard') {
+    const items = (await listNews(new URL('/news?limit=100', 'http://localhost'), user)).items;
+    const critical = items.filter((item) => item.risk_level === 'حرج').length;
+    const high = items.filter((item) => item.risk_level === 'مرتفع').length;
+    return json(response, 200, {
+      total: items.length,
+      critical,
+      high,
+      byCategory: items.reduce((counts, item) => {
+        const category = item.category || 'غير مصنف';
+        counts[category] = (counts[category] || 0) + 1;
+        return counts;
+      }, {}),
+      latest: items.slice(0, 10),
+    }, origin);
+  }
   const newsMatch = url.pathname.match(/^\/news\/([^/]+)$/);
-  if (request.method === 'GET' && newsMatch) {
+  const reservedNewsPaths = new Set(['sources', 'fetch-logs', 'stats', 'arabic-dashboard']);
+  if (request.method === 'GET' && newsMatch && !reservedNewsPaths.has(newsMatch[1])) {
     const snapshot = await db.collection('news_items').doc(newsMatch[1]).get();
     if (!snapshot.exists) return json(response, 404, { error: 'News item not found.' }, origin);
     return json(response, 200, { id: snapshot.id, ...serialize(snapshot.data()) }, origin);
@@ -257,7 +371,7 @@ async function handler(request, response) {
     else await ref.set({ userId: user.uid, newsId: bookmarkMatch[1], createdAt: admin.firestore.FieldValue.serverTimestamp() });
     return json(response, 200, { bookmarked: request.method === 'POST' }, origin);
   }
-  const summarizeMatch = url.pathname.match(/^\/news\/([^/]+)\/summarize$/);
+  const summarizeMatch = url.pathname.match(/^\/news\/([^/]+)\/(?:summarize|summarize-arabic)$/);
   if (request.method === 'POST' && summarizeMatch) {
     requireRole(user, ['admin', 'manager']);
     const ref = db.collection('news_items').doc(summarizeMatch[1]);
@@ -265,7 +379,7 @@ async function handler(request, response) {
     if (!snapshot.exists) return json(response, 404, { error: 'News item not found.' }, origin);
     const data = snapshot.data();
     const summary = await summaryService.summarize(data);
-    await ref.update({ summary, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    await ref.update({ summary, summary_ar: summary, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     return json(response, 200, { summary }, origin);
   }
   const taskMatch = url.pathname.match(/^\/news\/([^/]+)\/create-task$/);
@@ -326,6 +440,68 @@ async function handler(request, response) {
       latestFetchStatus: logs[0] || null,
       averageScore: items.length ? Math.round(items.reduce((sum, item) => sum + Number(item.score || 0), 0) / items.length) : 0,
     }, origin);
+  }
+  if (request.method === 'GET' && url.pathname === '/grey-intel') {
+    return json(response, 200, await listGreyIntel(url), origin);
+  }
+  if (request.method === 'POST' && url.pathname === '/grey-intel/sources/seed') {
+    requireRole(user, ['admin']);
+    const count = await seedGreySources(user.uid);
+    await audit(user, 'source.seed-grey', 'news_source', 'grey-defaults', { count });
+    return json(response, 200, { seeded: count }, origin);
+  }
+  if (request.method === 'POST' && url.pathname === '/grey-intel/fetch') {
+    requireRole(user, ['admin']);
+    const result = await runIntelligenceSync({ force: true, scope: 'grey' });
+    await audit(user, 'intelligence.fetch-grey', 'system', 'grey');
+    return json(response, 200, result, origin);
+  }
+  if (request.method === 'GET' && url.pathname === '/grey-intel/dashboard') {
+    const items = (await listGreyIntel(new URL('/grey-intel?limit=100', 'http://localhost'))).items;
+    return json(response, 200, {
+      total: items.length,
+      critical: items.filter((item) => item.risk_level === 'حرج').length,
+      possibleLeaks: items.filter((item) => item.data_sensitivity !== 'عام').length,
+      latest: items.slice(0, 10),
+      legalNotice: LEGAL_NOTICE,
+    }, origin);
+  }
+  if (request.method === 'POST' && url.pathname === '/grey-intel/watchlist/check') {
+    requireRole(user, ['admin', 'manager']);
+    const result = await runIntelligenceSync({ force: true, scope: 'grey' });
+    return json(response, 200, result, origin);
+  }
+  const greyBookmarkMatch = url.pathname.match(/^\/grey-intel\/([^/]+)\/bookmark$/);
+  if (request.method === 'POST' && greyBookmarkMatch) {
+    await db.collection('grey_bookmarks').doc(`${user.uid}_${greyBookmarkMatch[1]}`).set({
+      userId: user.uid,
+      itemId: greyBookmarkMatch[1],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return json(response, 200, { bookmarked: true }, origin);
+  }
+  const greyActionMatch = url.pathname.match(/^\/grey-intel\/([^/]+)\/(create-report|create-task)$/);
+  if (request.method === 'POST' && greyActionMatch) {
+    const input = await body(request);
+    const [, itemId, action] = greyActionMatch;
+    if (action === 'create-task') {
+      return json(response, 201, { id: await createTask(user, { ...input, sourceType: 'news', sourceIds: [itemId] }) }, origin);
+    }
+    const snapshot = await db.collection('grey_intel_items').doc(itemId).get();
+    if (!snapshot.exists) return json(response, 404, { error: 'Grey intelligence item not found.' }, origin);
+    return json(response, 201, {
+      id: await createArabicReport(user, {
+        ...input,
+        type: 'تقرير التسريبات والمصادر الرمادية',
+        greyIntelIds: [itemId],
+      }, [{ id: itemId, ...serialize(snapshot.data()) }]),
+    }, origin);
+  }
+  const greyItemMatch = url.pathname.match(/^\/grey-intel\/([^/]+)$/);
+  if (request.method === 'GET' && greyItemMatch) {
+    const snapshot = await db.collection('grey_intel_items').doc(greyItemMatch[1]).get();
+    if (!snapshot.exists) return json(response, 404, { error: 'Grey intelligence item not found.' }, origin);
+    return json(response, 200, { id: snapshot.id, ...serialize(snapshot.data()) }, origin);
   }
   if (request.method === 'GET' && url.pathname === '/repos/intelligence') {
     return json(response, 200, { items: await listCollection('repo_intelligence_items', 'score', 300) }, origin);
@@ -437,10 +613,40 @@ async function handler(request, response) {
     await db.collection('alerts').doc(alertMatch[1]).update({ read: true });
     return json(response, 200, { read: true }, origin);
   }
+  if (request.method === 'POST' && ['/reports/intelligence', '/reports/arabic-brief', '/reports/grey-intel'].includes(url.pathname)) {
+    const input = await body(request);
+    const newsIds = Array.isArray(input.newsIds) ? input.newsIds.slice(0, 200) : [];
+    const greyIds = Array.isArray(input.greyIntelIds) ? input.greyIntelIds.slice(0, 200) : [];
+    const [newsDocs, greyDocs] = await Promise.all([
+      Promise.all(newsIds.map((id) => db.collection('news_items').doc(id).get())),
+      Promise.all(greyIds.map((id) => db.collection('grey_intel_items').doc(id).get())),
+    ]);
+    const items = [...newsDocs, ...greyDocs]
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => ({ id: snapshot.id, ...serialize(snapshot.data()) }));
+    const defaults = url.pathname.endsWith('/grey-intel')
+      ? 'تقرير التسريبات والمصادر الرمادية'
+      : url.pathname.endsWith('/arabic-brief')
+        ? 'موجز استخباري إقليمي'
+        : 'تقرير أسبوعي تنفيذي';
+    return json(response, 201, {
+      id: await createArabicReport(user, { ...input, type: input.type || defaults }, items),
+    }, origin);
+  }
+  const intelligenceReportMatch = url.pathname.match(/^\/reports\/([^/]+)$/);
+  if (request.method === 'GET' && intelligenceReportMatch) {
+    const snapshot = await db.collection('intelligence_reports').doc(intelligenceReportMatch[1]).get();
+    if (!snapshot.exists) return json(response, 404, { error: 'Report not found.' }, origin);
+    const data = snapshot.data();
+    if (!['admin', 'manager'].includes(user.role) && data.createdBy !== user.uid) {
+      throw Object.assign(new Error('Insufficient permissions.'), { status: 403 });
+    }
+    return json(response, 200, { id: snapshot.id, ...serialize(data) }, origin);
+  }
   return json(response, 404, { error: 'Route not found.' }, origin);
 }
 
-const server = http.createServer((request, response) => {
+export const server = http.createServer((request, response) => {
   handler(request, response).catch((error) => {
     console.error(JSON.stringify({
       severity: 'ERROR',
@@ -453,6 +659,8 @@ const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(JSON.stringify({ severity: 'INFO', message: 'M3TM intelligence API started', port, projectId }));
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  server.listen(port, '0.0.0.0', () => {
+    console.log(JSON.stringify({ severity: 'INFO', message: 'M3TM intelligence API started', port, projectId }));
+  });
+}

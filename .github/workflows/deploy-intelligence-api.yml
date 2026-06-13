@@ -46,4 +46,4 @@ jobs:
           --project m3tm-rased-07246627-7b0bf
           --allow-unauthenticated
           --set-env-vars
-          "^@^FIREBASE_PROJECT_ID=m3tm-rased-07246627-7b0bf@ALLOWED_ORIGINS=https://m3tm.app,https://m3tm-rased-07246627-7b0bf.web.app"
+          "^@^FIREBASE_PROJECT_ID=m3tm-rased-07246627-7b0bf@ALLOWED_ORIGINS=https://m3tm.app,https://m3tm-rased-07246627-7b0bf.web.app@NEWS_DEFAULT_LANGUAGE=ar@ARABIC_NEWS_ENABLED=true@GREY_INTEL_ENABLED=true@ENABLE_LEAK_METADATA_ONLY=true@ENABLE_DARKWEB_DIRECT_ACCESS=false@ENABLE_PRIVATE_SOURCE_SCRAPING=false"

@@ -16,6 +16,7 @@ on:
           - hackernews
           - github
           - newsapi
+          - cisa_kev
 
 permissions:
   contents: read
@@ -49,5 +50,10 @@ jobs:
           RSS_NEWS_ENABLED: "true"
           NEWS_REFRESH_INTERVAL_MINUTES: "60"
           NEWS_MAX_ITEMS_PER_FETCH: "100"
-          NEWS_DEFAULT_LANGUAGE: "en"
+          NEWS_DEFAULT_LANGUAGE: "ar"
           NEWS_FETCH_TIMEOUT_SECONDS: "15"
+          ARABIC_NEWS_ENABLED: "true"
+          GREY_INTEL_ENABLED: "true"
+          ENABLE_LEAK_METADATA_ONLY: "true"
+          ENABLE_DARKWEB_DIRECT_ACCESS: "false"
+          ENABLE_PRIVATE_SOURCE_SCRAPING: "false"

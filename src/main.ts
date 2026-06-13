@@ -34,7 +34,9 @@ import {
   subscribeAlerts,
   subscribeBookmarks,
   subscribeFetchLogs,
+  subscribeGreyIntelligence,
   subscribeIntelligenceNews,
+  subscribeIntelligenceReports,
   subscribeIntelligenceSources,
   subscribeRepositories,
   subscribeWatchlistHits,
@@ -42,6 +44,9 @@ import {
 } from './lib/intelligence-data';
 import {
   renderAlerts,
+  renderArabicIntelligenceHub,
+  renderGreyIntelligence,
+  renderIntelligenceReports,
   renderNewsIntelligence,
   renderRepositoryIntelligence,
   renderWatchlists,
@@ -49,6 +54,8 @@ import {
 } from './intelligence-ui';
 import type {
   AppSettings,
+  ArabicIntelligenceReport,
+  GreyIntelligenceItem,
   IntelligenceAlert,
   IntelligenceNewsItem,
   IntelligenceSource,
@@ -66,10 +73,13 @@ import type {
 
 type Route =
   | 'dashboard'
+  | 'intelligence'
   | 'news'
+  | 'grey-intel'
   | 'repositories/intelligence'
   | 'watchlists'
   | 'alerts'
+  | 'reports'
   | 'archive'
   | 'sources'
   | 'users'
@@ -90,6 +100,8 @@ const state: {
   syncRuns: SyncRun[];
   settings: AppSettings | null;
   intelligenceNews: IntelligenceNewsItem[];
+  greyIntel: GreyIntelligenceItem[];
+  intelligenceReports: ArabicIntelligenceReport[];
   intelligenceSources: IntelligenceSource[];
   repositories: RepositoryIntelligenceItem[];
   watchlists: Watchlist[];
@@ -111,6 +123,8 @@ const state: {
   syncRuns: [],
   settings: null,
   intelligenceNews: [],
+  greyIntel: [],
+  intelligenceReports: [],
   intelligenceSources: [],
   repositories: [],
   watchlists: [],
@@ -141,10 +155,13 @@ function routeFromHash(): Route {
   const route = location.hash.replace(/^#\/?/, '') as Route;
   return [
     'dashboard',
+    'intelligence',
     'news',
+    'grey-intel',
     'repositories/intelligence',
     'watchlists',
     'alerts',
+    'reports',
     'archive',
     'sources',
     'users',
@@ -201,6 +218,14 @@ function subscribeToData(): void {
     }, onError),
     subscribeIntelligenceNews((items) => {
       state.intelligenceNews = items;
+      renderCurrentView();
+    }, onError),
+    subscribeGreyIntelligence((items) => {
+      state.greyIntel = items;
+      renderCurrentView();
+    }, onError),
+    subscribeIntelligenceReports((items) => {
+      state.intelligenceReports = items;
       renderCurrentView();
     }, onError),
     subscribeIntelligenceSources((items) => {
@@ -356,16 +381,19 @@ function renderShell(): void {
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#/dashboard" aria-label="M3TM RASED">
+        <a class="brand" href="#/intelligence" aria-label="M3TM RASED">
           <span class="brand-mark">M3</span>
           <span><strong>RASED</strong><small>منصة الرصد</small></span>
         </a>
         <nav aria-label="التنقل الرئيسي">
           ${navButton('dashboard', 'لوحة الرصد')}
+          ${navButton('intelligence', 'مركز الرصد العربي')}
           ${navButton('news', 'مركز الأخبار')}
+          ${navButton('grey-intel', 'المصادر الرمادية')}
           ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
           ${navButton('watchlists', 'قوائم المراقبة')}
           ${navButton('alerts', `التنبيهات${state.alerts.some((item) => !item.read) ? ' •' : ''}`)}
+          ${navButton('reports', 'التقارير التنفيذية')}
           ${navButton('archive', 'الأرشيف القديم')}
           ${navButton('sources', 'المصادر')}
           ${adminLinks}
@@ -597,6 +625,8 @@ function intelligenceUiState(profile: UserProfile): IntelligenceUiState {
     alerts: state.alerts,
     fetchLogs: state.fetchLogs,
     bookmarks: state.bookmarks,
+    greyIntel: state.greyIntel,
+    reports: state.intelligenceReports,
   };
 }
 
@@ -915,10 +945,13 @@ function renderCurrentView(): void {
   view.textContent = '';
   const titles: Record<Route, string> = {
     dashboard: 'لوحة الرصد',
+    intelligence: 'مركز الرصد العربي',
     news: 'مركز الأخبار والاستخبارات',
+    'grey-intel': 'المصادر الرمادية والتسريبات',
     'repositories/intelligence': 'ذكاء المستودعات',
     watchlists: 'قوائم المراقبة',
     alerts: 'التنبيهات',
+    reports: 'التقارير التنفيذية',
     archive: 'الأرشيف القديم',
     sources: 'المصادر',
     users: 'المستخدمون',
@@ -932,10 +965,13 @@ function renderCurrentView(): void {
   }
   if (state.route === 'dashboard') renderDashboard(view);
   const intelligenceState = intelligenceUiState(state.session.profile);
+  if (state.route === 'intelligence') renderArabicIntelligenceHub(view, intelligenceState, setMessage);
   if (state.route === 'news') renderNewsIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'grey-intel') renderGreyIntelligence(view, intelligenceState, setMessage);
   if (state.route === 'repositories/intelligence') renderRepositoryIntelligence(view, intelligenceState, setMessage);
   if (state.route === 'watchlists') renderWatchlists(view, intelligenceState, setMessage);
   if (state.route === 'alerts') renderAlerts(view, intelligenceState, setMessage);
+  if (state.route === 'reports') renderIntelligenceReports(view, intelligenceState);
   if (state.route === 'archive') renderNews(view);
   if (state.route === 'sources') renderSources(view);
   if (state.route === 'users') renderUsers(view);
