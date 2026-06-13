@@ -156,13 +156,6 @@ async function main() {
     accessToken = await exchangeServiceAccountCredentials({ credentials });
   }
   const rulesContent = await readFile('firestore.rules', 'utf8');
-  const indexes = JSON.parse(await readFile('firestore.indexes.json', 'utf8'));
-
-  if (indexes.indexes?.length || indexes.fieldOverrides?.length) {
-    throw new Error(
-      'Direct deployment currently requires an empty firestore.indexes.json manifest.',
-    );
-  }
 
   const result = await deployFirestoreRules({ projectId, accessToken, rulesContent });
   console.log(`Deployed ${result.rulesetName} to ${result.releaseName}.`);
