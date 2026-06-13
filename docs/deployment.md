@@ -52,6 +52,21 @@ npx firebase-tools deploy --only firestore:rules,firestore:indexes,hosting \
 
 ## Cloud Run
 
+قبل أول نشر، يجب أن يملك الحساب المنفذ صلاحية
+`serviceusage.services.enable`، ثم تفعيل الخدمات:
+
+```bash
+gcloud services enable \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  --project m3tm-rased-07246627-7b0bf
+```
+
+حساب Firebase Admin SDK المستخدم حاليًا للنشر لا يملك هذه الصلاحية. نفذ التفعيل
+مرة واحدة بحساب Owner أو Service Usage Admin، ثم أعد تشغيل workflow:
+`Deploy intelligence API to Cloud Run`.
+
 ```bash
 gcloud run deploy m3tm-intelligence-api \
   --source . \
@@ -76,4 +91,19 @@ gcloud scheduler jobs create http m3tm-intelligence-refresh \
 ```
 
 يفضل تخزين سر الجدولة في Secret Manager واستخدام تكامل OIDC في بيئات الإنتاج.
+
+## نقل النطاق إلى Firebase Hosting
+
+النطاق مهيأ داخل Firebase Auth وFirebase Hosting. عند نقل الإنتاج من GitHub
+Pages إلى Firebase:
+
+1. احذف سجلات `A` الأربعة الخاصة بـGitHub Pages من `m3tm.app`.
+2. أضف `A` بقيمة `199.36.158.100` إلى `m3tm.app`.
+3. أضف `TXT` بقيمة `hosting-site=m3tm-rased-07246627-7b0bf` إلى `m3tm.app`.
+4. استبدل `www.m3tm.app CNAME m3tm.github.io` بـ
+   `m3tm-rased-07246627-7b0bf.web.app`.
+5. بعد صدور شهادة Firebase وظهور `HOST_ACTIVE`، احذف الدومين المخصص من
+   إعدادات GitHub Pages حتى يبقى رابط GitHub الاحتياطي على نطاق `github.io`.
+
+لا تحذف سجلات GitHub قبل إضافة سجلات Firebase، لتقليل فترة انقطاع النطاق.
 
