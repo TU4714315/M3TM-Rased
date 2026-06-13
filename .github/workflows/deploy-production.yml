@@ -40,6 +40,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:rules
+      - run: node --check server/index.mjs
+      - run: node --check scripts/sync-intelligence.mjs
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
@@ -78,6 +80,8 @@ jobs:
         run: node scripts/deploy-firestore-rules.mjs
         env:
           FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+      - name: Deploy Firestore indexes
+        run: npx firebase-tools deploy --only firestore:indexes --project m3tm-rased-07246627-7b0bf --non-interactive
       - uses: FirebaseExtended/action-hosting-deploy@v0.10.0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

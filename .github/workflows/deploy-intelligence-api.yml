@@ -1,0 +1,49 @@
+name: Deploy intelligence API to Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: Cloud Run region
+        required: true
+        default: us-central1
+      service:
+        description: Cloud Run service name
+        required: true
+        default: m3tm-intelligence-api
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: intelligence-api-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: node --check server/index.mjs
+      - name: Authenticate Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Deploy Cloud Run API
+        run: >
+          gcloud run deploy "${{ inputs.service }}"
+          --source .
+          --region "${{ inputs.region }}"
+          --project m3tm-rased-07246627-7b0bf
+          --allow-unauthenticated
+          --set-env-vars
+          "^@^FIREBASE_PROJECT_ID=m3tm-rased-07246627-7b0bf@ALLOWED_ORIGINS=https://m3tm.app,https://m3tm-rased-07246627-7b0bf.web.app"

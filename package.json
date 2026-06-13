@@ -13,6 +13,8 @@
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "test:e2e": "playwright test",
     "sync:feeds": "node scripts/sync-feeds.mjs",
+    "sync:intelligence": "node scripts/sync-intelligence.mjs",
+    "serve:api": "node server/index.mjs",
     "domain:status": "node scripts/configure-firebase-domains.mjs status",
     "verify:firebase-config": "node scripts/verify-firebase-web-config.mjs",
     "smoke:auth": "node scripts/smoke-production-auth.mjs",

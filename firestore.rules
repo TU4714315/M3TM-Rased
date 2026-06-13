@@ -95,6 +95,47 @@ service cloud.firestore {
       && request.resource.data.updatedBy == request.auth.uid;
     }
 
+    function validIntelligenceSource() {
+      return request.resource.data.keys().hasAll([
+        'name', 'type', 'url', 'provider', 'category', 'language',
+        'priority', 'enabled', 'fetchIntervalMinutes', 'createdAt',
+        'updatedAt', 'createdBy'
+      ])
+      && request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.name.size() <= 160
+      && request.resource.data.url is string
+      && request.resource.data.url.size() > 0
+      && request.resource.data.url.size() <= 2048
+      && request.resource.data.provider in [
+        'rss', 'gdelt', 'hackernews', 'github', 'newsapi', 'custom'
+      ]
+      && request.resource.data.priority is int
+      && request.resource.data.priority >= 0
+      && request.resource.data.priority <= 100
+      && request.resource.data.enabled is bool
+      && request.resource.data.fetchIntervalMinutes is int
+      && request.resource.data.fetchIntervalMinutes >= 15
+      && request.resource.data.fetchIntervalMinutes <= 1440;
+    }
+
+    function validWatchlist() {
+      return request.resource.data.keys().hasAll([
+        'name', 'type', 'keywords', 'entities', 'enabled',
+        'notifyChannels', 'createdBy', 'createdAt', 'updatedAt'
+      ])
+      && request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.name.size() <= 160
+      && request.resource.data.type in ['mixed', 'news', 'repository']
+      && request.resource.data.keywords is list
+      && request.resource.data.keywords.size() <= 100
+      && request.resource.data.entities is list
+      && request.resource.data.entities.size() <= 100
+      && request.resource.data.notifyChannels is list
+      && request.resource.data.enabled is bool;
+    }
+
     match /users/{uid} {
       allow get: if signedIn() && (uid == request.auth.uid || admin());
       allow list: if admin();
@@ -159,6 +200,109 @@ service cloud.firestore {
       allow read: if authorized();
       allow create, update: if admin() && docId == 'general' && validSettings();
       allow delete: if false;
+    }
+
+    match /news_items/{docId} {
+      allow read: if authorized();
+      allow update: if contentManager()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['summary', 'status', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    match /news_sources/{docId} {
+      allow read: if authorized();
+      allow create, update: if contentManager() && validIntelligenceSource();
+      allow delete: if contentManager();
+    }
+
+    match /news_bookmarks/{docId} {
+      allow read: if authorized() && resource.data.userId == request.auth.uid;
+      allow create: if authorized()
+        && request.resource.data.userId == request.auth.uid
+        && docId == request.auth.uid + '_' + request.resource.data.newsId;
+      allow delete: if authorized() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /news_fetch_logs/{docId} {
+      allow read: if contentManager();
+      allow write: if false;
+    }
+
+    match /repo_intelligence_items/{docId} {
+      allow read: if authorized();
+      allow update: if contentManager()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['saved', 'usefulIdeas', 'implementationPriority', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    match /watchlists/{docId} {
+      allow read: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+      allow create: if authorized()
+        && request.resource.data.createdBy == request.auth.uid
+        && validWatchlist();
+      allow update: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid)
+        && validWatchlist();
+      allow delete: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+    }
+
+    match /watchlist_hits/{docId} {
+      allow read: if authorized();
+      allow write: if false;
+    }
+
+    match /alerts/{docId} {
+      allow read: if authorized();
+      allow update: if authorized()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false;
+    }
+
+    match /tasks/{docId} {
+      allow read: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+      allow create: if authorized()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+    }
+
+    match /reports/{docId} {
+      allow read: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+      allow create: if authorized()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+    }
+
+    match /intelligence_requests/{docId} {
+      allow read: if contentManager();
+      allow create: if contentManager()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
+    match /audit_logs/{docId} {
+      allow read: if admin();
+      allow create: if contentManager()
+        && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /repository_ideas/{docId} {
+      allow read: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
+      allow create: if authorized()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if authorized()
+        && (contentManager() || resource.data.createdBy == request.auth.uid);
     }
 
     match /{document=**} {

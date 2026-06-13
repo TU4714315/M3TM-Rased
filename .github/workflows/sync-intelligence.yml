@@ -1,0 +1,53 @@
+name: Synchronize news and repository intelligence
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Optional provider filter
+        required: false
+        type: choice
+        options:
+          - all
+          - rss
+          - gdelt
+          - hackernews
+          - github
+          - newsapi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intelligence-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Fetch intelligence providers
+        run: npm run sync:intelligence
+        env:
+          FIREBASE_SERVICE_ACCOUNT_M3TM_RASED: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+          FIREBASE_PROJECT_ID: m3tm-rased-07246627-7b0bf
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          NEWS_PROVIDER: ${{ inputs.provider == 'all' && '' || inputs.provider }}
+          GDELT_ENABLED: "true"
+          HACKERNEWS_ENABLED: "true"
+          GITHUB_NEWS_ENABLED: "true"
+          RSS_NEWS_ENABLED: "true"
+          NEWS_REFRESH_INTERVAL_MINUTES: "60"
+          NEWS_MAX_ITEMS_PER_FETCH: "100"
+          NEWS_DEFAULT_LANGUAGE: "en"
+          NEWS_FETCH_TIMEOUT_SECONDS: "15"

@@ -30,17 +30,51 @@ import { importLegacyData, previewLegacyImport, type ImportPreview } from './lib
 import { canManageContent, canManageUsers } from './lib/permissions';
 import { buildExportPayload } from './lib/export';
 import { friendlyError } from './lib/errors';
+import {
+  subscribeAlerts,
+  subscribeBookmarks,
+  subscribeFetchLogs,
+  subscribeIntelligenceNews,
+  subscribeIntelligenceSources,
+  subscribeRepositories,
+  subscribeWatchlistHits,
+  subscribeWatchlists,
+} from './lib/intelligence-data';
+import {
+  renderAlerts,
+  renderNewsIntelligence,
+  renderRepositoryIntelligence,
+  renderWatchlists,
+  type IntelligenceUiState,
+} from './intelligence-ui';
 import type {
   AppSettings,
+  IntelligenceAlert,
+  IntelligenceNewsItem,
+  IntelligenceSource,
   Invite,
   NewsItem,
+  NewsFetchLog,
+  RepositoryIntelligenceItem,
   Role,
   Source,
   SyncRun,
   UserProfile,
+  Watchlist,
+  WatchlistHit,
 } from './types';
 
-type Route = 'dashboard' | 'news' | 'sources' | 'users' | 'import' | 'settings';
+type Route =
+  | 'dashboard'
+  | 'news'
+  | 'repositories/intelligence'
+  | 'watchlists'
+  | 'alerts'
+  | 'archive'
+  | 'sources'
+  | 'users'
+  | 'import'
+  | 'settings';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 if (!appRoot) throw new Error('App root is missing.');
@@ -55,6 +89,14 @@ const state: {
   invites: Invite[];
   syncRuns: SyncRun[];
   settings: AppSettings | null;
+  intelligenceNews: IntelligenceNewsItem[];
+  intelligenceSources: IntelligenceSource[];
+  repositories: RepositoryIntelligenceItem[];
+  watchlists: Watchlist[];
+  watchlistHits: WatchlistHit[];
+  alerts: IntelligenceAlert[];
+  fetchLogs: NewsFetchLog[];
+  bookmarks: Set<string>;
   importPreview: ImportPreview | null;
   error: string;
   loading: boolean;
@@ -68,6 +110,14 @@ const state: {
   invites: [],
   syncRuns: [],
   settings: null,
+  intelligenceNews: [],
+  intelligenceSources: [],
+  repositories: [],
+  watchlists: [],
+  watchlistHits: [],
+  alerts: [],
+  fetchLogs: [],
+  bookmarks: new Set(),
   importPreview: null,
   error: '',
   loading: true,
@@ -89,7 +139,18 @@ function escapeStatic(value: string): string {
 
 function routeFromHash(): Route {
   const route = location.hash.replace(/^#\/?/, '') as Route;
-  return ['dashboard', 'news', 'sources', 'users', 'import', 'settings'].includes(route)
+  return [
+    'dashboard',
+    'news',
+    'repositories/intelligence',
+    'watchlists',
+    'alerts',
+    'archive',
+    'sources',
+    'users',
+    'import',
+    'settings',
+  ].includes(route)
     ? route
     : 'dashboard';
 }
@@ -138,6 +199,34 @@ function subscribeToData(): void {
       state.settings = settings;
       renderCurrentView();
     }, onError),
+    subscribeIntelligenceNews((items) => {
+      state.intelligenceNews = items;
+      renderCurrentView();
+    }, onError),
+    subscribeIntelligenceSources((items) => {
+      state.intelligenceSources = items;
+      renderCurrentView();
+    }, onError),
+    subscribeRepositories((items) => {
+      state.repositories = items;
+      renderCurrentView();
+    }, onError),
+    subscribeWatchlists(state.session.profile.id, state.session.profile.role, (items) => {
+      state.watchlists = items;
+      renderCurrentView();
+    }, onError),
+    subscribeWatchlistHits((items) => {
+      state.watchlistHits = items;
+      renderCurrentView();
+    }, onError),
+    subscribeAlerts((items) => {
+      state.alerts = items;
+      renderCurrentView();
+    }, onError),
+    subscribeBookmarks(state.session.profile.id, (items) => {
+      state.bookmarks = items;
+      renderCurrentView();
+    }, onError),
   );
   if (canManageUsers(state.session.profile.role)) {
     state.unsubscribers.push(
@@ -155,6 +244,10 @@ function subscribeToData(): void {
     state.unsubscribers.push(
       subscribeSyncRuns((items) => {
         state.syncRuns = items;
+        renderCurrentView();
+      }, onError),
+      subscribeFetchLogs((items) => {
+        state.fetchLogs = items;
         renderCurrentView();
       }, onError),
     );
@@ -269,7 +362,11 @@ function renderShell(): void {
         </a>
         <nav aria-label="التنقل الرئيسي">
           ${navButton('dashboard', 'لوحة الرصد')}
-          ${navButton('news', 'الأخبار')}
+          ${navButton('news', 'مركز الأخبار')}
+          ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
+          ${navButton('watchlists', 'قوائم المراقبة')}
+          ${navButton('alerts', `التنبيهات${state.alerts.some((item) => !item.read) ? ' •' : ''}`)}
+          ${navButton('archive', 'الأرشيف القديم')}
           ${navButton('sources', 'المصادر')}
           ${adminLinks}
         </nav>
@@ -486,6 +583,21 @@ function renderNews(view: HTMLElement): void {
       setMessage(friendlyError(error), 'error');
     }
   });
+}
+
+function intelligenceUiState(profile: UserProfile): IntelligenceUiState {
+  return {
+    userId: profile.id,
+    role: profile.role,
+    news: state.intelligenceNews,
+    sources: state.intelligenceSources,
+    repositories: state.repositories,
+    watchlists: state.watchlists,
+    hits: state.watchlistHits,
+    alerts: state.alerts,
+    fetchLogs: state.fetchLogs,
+    bookmarks: state.bookmarks,
+  };
 }
 
 function renderSources(view: HTMLElement): void {
@@ -803,7 +915,11 @@ function renderCurrentView(): void {
   view.textContent = '';
   const titles: Record<Route, string> = {
     dashboard: 'لوحة الرصد',
-    news: 'الأخبار',
+    news: 'مركز الأخبار والاستخبارات',
+    'repositories/intelligence': 'ذكاء المستودعات',
+    watchlists: 'قوائم المراقبة',
+    alerts: 'التنبيهات',
+    archive: 'الأرشيف القديم',
     sources: 'المصادر',
     users: 'المستخدمون',
     import: 'الاستيراد',
@@ -815,7 +931,12 @@ function renderCurrentView(): void {
     state.error = '';
   }
   if (state.route === 'dashboard') renderDashboard(view);
-  if (state.route === 'news') renderNews(view);
+  const intelligenceState = intelligenceUiState(state.session.profile);
+  if (state.route === 'news') renderNewsIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'repositories/intelligence') renderRepositoryIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'watchlists') renderWatchlists(view, intelligenceState, setMessage);
+  if (state.route === 'alerts') renderAlerts(view, intelligenceState, setMessage);
+  if (state.route === 'archive') renderNews(view);
   if (state.route === 'sources') renderSources(view);
   if (state.route === 'users') renderUsers(view);
   if (state.route === 'import') renderImport(view);

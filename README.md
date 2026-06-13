@@ -2,12 +2,17 @@
 
 منصة عربية لإدارة الأخبار ومصادر RSS/Atom بصلاحيات Firebase واضحة، ومزامنة آلية كل 15 دقيقة.
 
+يتضمن الإصدار الحالي **News & Repository Intelligence Hub** لجمع الأخبار من RSS وGDELT
+وHacker News وGitHub وNewsAPI الاختياري، مع تقييم الصلة، استخراج المؤشرات، ذكاء
+المستودعات، قوائم المراقبة، التنبيهات، التقارير والمهام.
+
 ## البنية
 
 - Vite + TypeScript للواجهة.
 - Firebase Authentication عبر Google أو البريد وكلمة المرور.
 - Firestore للأخبار والمصادر والمستخدمين والدعوات وسجل المزامنة.
 - GitHub Actions لجلب RSS/Atom والنشر إلى Firebase Hosting وGitHub Pages.
+- عامل استخبارات متعدد المزودين وخدمة API اختيارية قابلة للنشر على Cloud Run.
 - Hash routing حتى يعمل البناء نفسه على الاستضافتين.
 
 ## الصلاحيات
@@ -51,6 +56,9 @@ npm run test:e2e
 - `syncRuns`
 - `syncRequests`
 - `settings`
+- `news_items`, `news_sources`, `news_bookmarks`, `news_fetch_logs`
+- `repo_intelligence_items`, `watchlists`, `watchlist_hits`, `alerts`
+- `tasks`, `reports`, `repository_ideas`, `audit_logs`
 
 يتضمن مستند `settings/general` اسم المنصة، والتصنيف الافتراضي، ومفتاح تشغيل أو تعطيل مزامنة المصادر.
 
@@ -69,6 +77,13 @@ npm run test:e2e
 
 ```text
 FIREBASE_SERVICE_ACCOUNT_M3TM_RASED
+```
+
+الأسرار الاختيارية:
+
+```text
+GITHUB_TOKEN
+NEWS_API_KEY
 ```
 
 يجب أن يحتوي JSON لحساب خدمة يملك الصلاحيات اللازمة لـFirestore وFirebase Hosting.
@@ -108,3 +123,14 @@ Firebase Hosting هو الاستضافة الأساسية لـ`m3tm.app`. يجب
 - Firebase Web config عام بطبيعته، والحماية الفعلية في Auth وFirestore Rules.
 - جميع البيانات الديناميكية تُعرض عبر DOM آمن، وتُرفض البروتوكولات غير الآمنة.
 - Firebase Hosting يضيف CSP ورؤوس منع الإطارات وسياسة الصلاحيات.
+
+## مركز الاستخبارات
+
+- الواجهة: `#/news`
+- ذكاء المستودعات: `#/repositories/intelligence`
+- قوائم المراقبة: `#/watchlists`
+- التنبيهات: `#/alerts`
+- المزامنة اليدوية: `npm run sync:intelligence`
+- خدمة API المحلية: `npm run serve:api`
+
+التوثيق الكامل: [docs/news_intelligence_hub.md](docs/news_intelligence_hub.md)
