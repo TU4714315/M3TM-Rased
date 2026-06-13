@@ -38,6 +38,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
       - uses: google-github-actions/setup-gcloud@v3
+      - name: Enable Cloud Run build services
+        run: >
+          gcloud services enable
+          run.googleapis.com
+          cloudbuild.googleapis.com
+          artifactregistry.googleapis.com
+          --project m3tm-rased-07246627-7b0bf
+          --quiet
       - name: Deploy Cloud Run API
         run: >
           gcloud run deploy "${{ inputs.service }}"
