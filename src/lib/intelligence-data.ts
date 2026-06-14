@@ -78,7 +78,7 @@ export function subscribeIntelligenceNews(
   success: (items: IntelligenceNewsItem[]) => void,
   failure: (error: Error) => void,
 ): Unsubscribe {
-  return subscribeCollection('news_items', 'publishedAt', 500, success, failure);
+  return subscribeCollection('news_items', 'publishedAt', 300, success, failure);
 }
 
 export function subscribeGreyIntelligence(

@@ -5,6 +5,7 @@ import {
   buildArabicExecutiveReport,
   classifyArabicCategory,
   extractArabicEntities,
+  scoreArabicRelevance,
   scoreArabicRisk,
   toArabicIntelligenceItem,
   toGreyMetadataItem,
@@ -57,6 +58,13 @@ describe('Arabic intelligence normalization', () => {
   it('classifies Arabic security and regional text', () => {
     expect(classifyArabicCategory('رصد هجوم سيبراني وثغرة CVE جديدة')).toBe('الأمن السيبراني');
     expect(classifyArabicCategory('تطورات الحرس الثوري وفيلق القدس في طهران')).toBe('إيران');
+    expect(classifyArabicCategory('نتائج الدوري ومباريات كرة القدم اليوم')).toBe('أخبار عامة');
+  });
+
+  it('rejects unrelated sports and accepts intelligence topics', () => {
+    expect(scoreArabicRelevance('نتائج الدوري ومباراة كرة القدم اليوم').relevant).toBe(false);
+    expect(scoreArabicRelevance('هجوم سيبراني وتسريب بيانات في السعودية').relevant).toBe(true);
+    expect(scoreArabicRelevance('نتائج عامة', { category_mode: 'fixed' }).relevant).toBe(true);
   });
 
   it('extracts Arabic countries, organizations, places, and security terms', () => {
@@ -77,6 +85,17 @@ describe('Arabic intelligence normalization', () => {
     expect(item.country).toBe('السعودية');
     expect(item.tags_ar).toContain('الأمن السيبراني');
     expect(item.confidence).toBe(90);
+    expect(item.status).toBe('active');
+    expect(item.base_score).toBe(55);
+  });
+
+  it('infers broad-source categories instead of forcing الخليج', () => {
+    const item = toArabicIntelligenceItem(baseItem, {
+      category: 'الخليج',
+      category_mode: 'infer',
+      source_type: 'regional_media',
+    });
+    expect(item.category).toBe('الأمن السيبراني');
   });
 
   it('raises direct strike and intelligence leak risk', () => {
@@ -108,12 +127,14 @@ describe('Grey intelligence safety', () => {
 describe('Arabic source seeds and reports', () => {
   it('seeds all Arabic GDELT queries and regional sources', () => {
     const sources = buildArabicSeedSources();
-    expect(ARABIC_GDELT_QUERIES).toHaveLength(10);
+    expect(ARABIC_GDELT_QUERIES).toHaveLength(12);
     expect(ARABIC_RSS_SOURCES).toHaveLength(4);
     expect(sources.length).toBeGreaterThan(35);
     expect(sources.every((source) => source.language === 'ar')).toBe(true);
     expect(sources.some((source) => source.name.includes('واس'))).toBe(true);
     expect(sources.some((source) => source.provider === 'rss')).toBe(true);
+    expect(sources.filter((source) => source.provider === 'rss').every((source) => source.category_mode === 'infer')).toBe(true);
+    expect(sources.every((source) => source.intelligence_scope === 'arabic')).toBe(true);
   });
 
   it('seeds only public security metadata sources', () => {

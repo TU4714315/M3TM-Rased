@@ -129,7 +129,20 @@ async function seedSources() {
 }
 
 export async function seedArabicSources(actor = 'system-seed') {
-  return writeSeedSources(buildArabicSeedSources(), actor);
+  const sources = buildArabicSeedSources();
+  const activeIds = new Set(sources.map((source) => source.id));
+  const existing = await db.collection('news_sources').where('intelligence_scope', '==', 'arabic').get();
+  const stale = existing.docs.filter((doc) => doc.id.startsWith('arabic-') && !activeIds.has(doc.id));
+  if (stale.length) {
+    const batch = db.batch();
+    stale.forEach((doc) => batch.set(doc.ref, {
+      enabled: false,
+      lastError: 'استُبدل هذا المصدر بإعداد رصد أحدث.',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true }));
+    await batch.commit();
+  }
+  return writeSeedSources(sources, actor);
 }
 
 export async function seedGreySources(actor = 'system-seed') {
@@ -217,6 +230,10 @@ async function syncSource(sourceDoc, watchlists) {
         ? toGreyMetadataItem(normalized, source)
         : toArabicIntelligenceItem(normalized, source);
       if (!item.title) continue;
+      if (!isGrey && item.status === 'archived') {
+        duplicateCount += 1;
+        continue;
+      }
       const collectionName = isGrey ? 'grey_intel_items' : 'news_items';
       const ref = db.collection(collectionName).doc(item.id);
       if ((await ref.get()).exists) {

@@ -3,16 +3,18 @@ import { intelligenceHash } from './intelligence-lib.mjs';
 const GDELT_URL = 'https://api.gdeltproject.org/api/v2/doc/doc';
 
 export const ARABIC_GDELT_QUERIES = [
-  ['الخليج وإيران', '(الخليج OR السعودية OR الإمارات OR الكويت OR قطر OR البحرين OR عمان) AND (إيران OR الحرس الثوري OR فيلق القدس)', 'الخليج'],
+  ['الخليج والسعودية', '(الخليج OR السعودية OR الإمارات OR الكويت OR قطر OR البحرين OR عمان) AND (أمن OR سياسة OR اقتصاد OR إيران OR تصعيد)', 'الخليج'],
+  ['إيران والحرس الثوري', '(إيران OR طهران OR الحرس الثوري OR فيلق القدس OR قاآني OR البرنامج النووي الإيراني)', 'إيران'],
   ['الضربات والهجمات', '(ضربة OR قصف OR هجوم OR غارة OR استهداف OR صاروخ OR مسيرة) AND (إيران OR العراق OR لبنان OR اليمن OR الخليج OR باكستان)', 'الضربات والهجمات'],
   ['التجسس والاستخبارات', '(تجسس OR استخبارات OR مخابرات OR جاسوس OR الموساد OR CIA OR اختراق OR تسريب) AND (الخليج OR إيران OR لبنان OR العراق OR باكستان)', 'التجسس والاستخبارات'],
-  ['الملف الشيعي السياسي', '(الشيعة OR الحشد الشعبي OR حزب الله OR الحوثيون OR الفصائل الشيعية OR المرجعية OR النجف OR قم) AND (إيران OR العراق OR لبنان OR اليمن OR الخليج)', 'الملف الشيعي السياسي'],
+  ['الملف الشيعي السياسي', '(الأحزاب الشيعية OR الحشد الشعبي OR حزب الله OR الحوثيون OR الفصائل الشيعية OR المرجعية OR النجف OR قم OR التيار الصدري OR الإطار التنسيقي) AND (إيران OR العراق OR لبنان OR اليمن OR الخليج)', 'الملف الشيعي السياسي'],
+  ['العراق ولبنان', '(العراق OR بغداد OR الحشد الشعبي OR لبنان OR بيروت OR حزب الله OR الجنوب اللبناني) AND (أمن OR سياسة OR هجوم OR نفوذ OR تجسس)', 'العراق'],
   ['الممرات البحرية', '(مضيق هرمز OR باب المندب OR البحر الأحمر OR ناقلات النفط OR الملاحة البحرية OR استهداف السفن)', 'الممرات البحرية'],
   ['الأمن السيبراني والتسريبات', '(اختراق OR تسريب بيانات OR خرق بيانات OR ransomware OR CVE OR malware OR leak OR breach) AND (السعودية OR الخليج OR إيران OR العراق OR لبنان OR باكستان)', 'الأمن السيبراني'],
-  ['الذكاء الاصطناعي', '(الذكاء الاصطناعي OR نماذج اللغة OR AI agents OR LLM OR OpenAI OR DeepSeek OR Gemini)', 'الذكاء الاصطناعي'],
+  ['الذكاء الاصطناعي والأدوات الحديثة', '(الذكاء الاصطناعي OR نماذج اللغة OR AI agents OR LLM OR OpenAI OR DeepSeek OR Gemini OR Claude OR أداة جديدة OR نموذج جديد)', 'الذكاء الاصطناعي'],
   ['الطاقة والنفط', '(النفط OR الطاقة OR أوبك OR أرامكو OR ناقلات النفط OR أسواق الطاقة) AND (الخليج OR إيران OR البحر الأحمر OR مضيق هرمز)', 'الطاقة والنفط'],
   ['الاحتجاجات والاضطرابات', '(احتجاجات OR اضطرابات OR مظاهرات OR اشتباكات OR أزمة سياسية) AND (إيران OR العراق OR لبنان OR باكستان)', 'الاحتجاجات والاضطرابات'],
-  ['العقوبات', '(عقوبات OR عقوبات أمريكية OR عقوبات أوروبية OR مجلس الأمن) AND (إيران OR حزب الله OR الحوثيين OR الحرس الثوري)', 'العقوبات الدولية'],
+  ['التجسس والتسريبات', '(تجسس OR استخبارات OR مخابرات OR تسريب OR خرق بيانات OR شبكة تجسس OR وثائق سرية) AND (الخليج OR السعودية OR إيران OR العراق OR لبنان)', 'التجسس والاستخبارات'],
 ];
 
 export const ARABIC_MEDIA_SOURCES = [
@@ -112,7 +114,9 @@ export function buildArabicSeedSources() {
     url,
     query: '',
     source_type: sourceType,
-    category: 'الخليج',
+    category: 'أخبار عامة',
+    category_mode: 'infer',
+    intelligence_scope: 'arabic',
     language: 'ar',
     priority: reliability,
     reliability_score: reliability,
@@ -128,6 +132,8 @@ export function buildArabicSeedSources() {
     query: `${query} sourcelang:Arabic`,
     source_type: 'gdelt_query',
     category,
+    category_mode: 'fixed',
+    intelligence_scope: 'arabic',
     language: 'ar',
     priority: 86,
     reliability_score: 78,
@@ -141,7 +147,9 @@ export function buildArabicSeedSources() {
     url: GDELT_URL,
     query: `domain:${String(domain).split('/')[0]} sourcelang:Arabic`,
     source_type: sourceType,
-    category: 'الخليج',
+    category: 'أخبار عامة',
+    category_mode: 'infer',
+    intelligence_scope: 'arabic',
     language: 'ar',
     priority: reliability,
     reliability_score: reliability,

@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "sync:feeds": "node scripts/sync-feeds.mjs",
     "sync:intelligence": "node scripts/sync-intelligence.mjs",
+    "repair:intelligence": "node scripts/repair-intelligence-news.mjs",
     "serve:api": "node server/index.mjs",
     "domain:status": "node scripts/configure-firebase-domains.mjs status",
     "verify:firebase-config": "node scripts/verify-firebase-web-config.mjs",
