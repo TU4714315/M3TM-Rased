@@ -80,15 +80,102 @@ function csv(value: FormDataEntryValue | null): string[] {
 
 function providerLabel(provider: IntelligenceProvider): string {
   const labels: Record<IntelligenceProvider, string> = {
-    rss: 'RSS',
-    gdelt: 'GDELT',
-    hackernews: 'Hacker News',
-    github: 'GitHub',
-    newsapi: 'NewsAPI',
-    cisa_kev: 'CISA KEV',
+    rss: 'خلاصة أخبار · RSS',
+    gdelt: 'الرصد العالمي · GDELT',
+    hackernews: 'هاكر نيوز',
+    github: 'جيت هب',
+    newsapi: 'واجهة الأخبار',
+    cisa_kev: 'الثغرات المستغلة · CISA',
     custom: 'مخصص',
   };
   return labels[provider] || String(provider || 'مصدر');
+}
+
+function sourceTypeLabel(value: unknown): string {
+  const labels: Record<string, string> = {
+    official_news: 'خبر رسمي',
+    official_advisory: 'تنبيه رسمي',
+    public_news: 'خبر عام',
+    public_blog: 'مدونة عامة',
+    public_research: 'بحث منشور',
+    rss: 'خلاصة أخبار',
+    gdelt_query: 'استعلام رصد عالمي',
+    github_advisory: 'تنبيه أمني من جيت هب',
+    github_repository: 'مستودع جيت هب',
+    manual: 'إضافة يدوية',
+    grey_metadata_only: 'بيانات وصفية فقط',
+    security_vendor: 'شركة أمن سيبراني',
+    government_agency: 'جهة حكومية',
+    regional_media: 'إعلام إقليمي',
+    international_media: 'إعلام دولي',
+  };
+  return labels[String(value || '')] || String(value || 'مصدر عام');
+}
+
+function alertTypeLabel(value: IntelligenceAlert['type']): string {
+  const labels: Record<IntelligenceAlert['type'], string> = {
+    'high-score': 'أهمية مرتفعة',
+    'watchlist-hit': 'تطابق قائمة مراقبة',
+    'repository-match': 'مستودع مهم',
+    cve: 'ثغرة أمنية',
+    'leak-indicator': 'مؤشر تسريب',
+    'fetch-failure': 'تعذر جلب مصدر',
+  };
+  return labels[value];
+}
+
+const INTELLIGENCE_TOPICS = [
+  ['إيران', 'إيران'],
+  ['الحرس الثوري', 'الحرس الثوري'],
+  ['الخليج', 'الخليج'],
+  ['السعودية', 'السعودية'],
+  ['الملف الشيعي السياسي', 'الملف الشيعي السياسي'],
+  ['العراق', 'العراق'],
+  ['لبنان', 'لبنان'],
+  ['التجسس', 'التجسس والاستخبارات'],
+  ['التسريبات', 'التسريبات'],
+  ['الأمن السيبراني', 'الأمن السيبراني'],
+  ['الذكاء الاصطناعي', 'الذكاء الاصطناعي'],
+] as const;
+
+function topicRail(): string {
+  return `
+    <nav class="topic-rail" aria-label="موضوعات الرصد الرئيسية">
+      ${INTELLIGENCE_TOPICS.map(([label, value]) => `<button type="button" data-topic="${escapeHtml(value)}">${escapeHtml(label)}</button>`).join('')}
+    </nav>
+  `;
+}
+
+function bindTopicRail(view: HTMLElement, searchSelector: string, redraw: () => void): void {
+  view.querySelectorAll<HTMLButtonElement>('[data-topic]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const search = view.querySelector<HTMLInputElement>(searchSelector);
+      if (!search) return;
+      const selected = button.classList.toggle('active');
+      view.querySelectorAll<HTMLButtonElement>('[data-topic]').forEach((item) => {
+        if (item !== button) item.classList.remove('active');
+      });
+      search.value = selected ? button.dataset.topic || '' : '';
+      redraw();
+    });
+  });
+}
+
+function topicInsights(items: IntelligenceNewsItem[]): string {
+  const counts = INTELLIGENCE_TOPICS.map(([label, value]) => [
+    label,
+    items.filter((item) => `${item.category} ${item.title} ${item.summary_ar || item.summary}`.includes(value)).length,
+  ] as const)
+    .filter(([, count]) => count > 0)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6);
+  return `
+    <aside class="intel-insights">
+      <div><span>أولوية الرصد</span><strong>${items.filter((item) => item.score >= 75).length}</strong><small>عنصر مرتفع الأهمية</small></div>
+      <h3>الموضوعات الأبرز</h3>
+      <ol>${counts.map(([label, count]) => `<li><span>${escapeHtml(label)}</span><strong>${count}</strong></li>`).join('') || '<li><span>لا توجد بيانات كافية</span></li>'}</ol>
+    </aside>
+  `;
 }
 
 function scoreClass(score: number): string {
@@ -125,7 +212,7 @@ function newsCard(
   setMessage: Message,
   selected: Set<string>,
 ): HTMLElement {
-  const card = element('article', 'intel-card news-result-card');
+  const card = element('article', 'intel-card news-result-card intelligence-row');
   const header = element('div', 'intel-card-header');
   const score = element('span', `score-badge ${scoreClass(item.score)}`, `${item.score}`);
   const identity = element('div', 'intel-card-identity');
@@ -460,7 +547,6 @@ export function renderArabicIntelligenceHub(
         <div class="compact-list">${state.news.slice(0, 8).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.source)} · ${escapeHtml(item.risk_level || 'متوسط')}</small></div><span class="score-badge ${scoreClass(item.score)}">${item.score}</span></div>`).join('') || '<p class="empty">ابدأ بتهيئة المصادر ثم اطلب الجلب.</p>'}</div>
       </article>
       <article class="panel"><div class="panel-heading"><h3>مؤشرات فقط</h3><a href="#/grey-intel">عرض المؤشرات</a></div>
-        <p class="legal-warning">${legalNotice}</p>
         <div class="compact-list">${state.greyIntel.slice(0, 6).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small></div></div>`).join('') || '<p class="empty">لا توجد مؤشرات عامة بعد.</p>'}</div>
       </article>
     </section>
@@ -497,16 +583,23 @@ export function renderGreyIntelligence(
   setMessage: Message,
 ): void {
   view.innerHTML = `
-    <section class="page-heading"><div><p class="eyebrow">مؤشرات عامة مفتوحة</p><h2>المصادر الرمادية والتسريبات</h2>
-      <p class="muted">تُحفظ بيانات وصفية ومؤشرات منشورة فقط. لا تُخزّن سجلات مسربة أو كلمات مرور أو بيانات شخصية.</p></div></section>
-    <section class="panel intel-filter-panel"><div class="intel-filters">
+    <section class="page-heading intelligence-heading"><div><h2>المصادر الرمادية والتسريبات</h2>
+      <p class="muted">مؤشرات وصفية منشورة من مصادر عامة، مرتبة حسب الخطر والأهمية.</p></div></section>
+    ${topicRail()}
+    <section class="panel intel-filter-panel glass-toolbar"><div class="intel-filters grey-filters">
       <label>كلمة البحث<input id="grey-search" type="search" /></label>
       <label>الدولة<select id="grey-country"><option value="">الكل</option></select></label>
       <label>مستوى الخطر<select id="grey-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
       <label>حساسية البيانات<select id="grey-sensitivity"><option value="">الكل</option><option>عام</option><option>حساس</option><option>مؤشر تسريب</option><option>تسريب محتمل</option><option>محظور التخزين</option></select></label>
     </div></section>
-    <p class="legal-warning">${legalNotice}</p>
-    <section id="grey-results" class="intel-grid"></section>
+    <div class="intelligence-workspace">
+      <section id="grey-results" class="intel-grid intelligence-stream"></section>
+      <aside class="intel-insights grey-insights">
+        <div><span>مؤشرات مرتفعة</span><strong>${state.greyIntel.filter((item) => ['حرج', 'مرتفع'].includes(item.risk_level)).length}</strong><small>تحتاج تحققاً ومتابعة</small></div>
+        <h3>حدود العرض</h3>
+        <p>تعرض المنصة بيانات وصفية ومصادر علنية فقط، دون سجلات خام أو بيانات شخصية.</p>
+      </aside>
+    </div>
   `;
   const country = view.querySelector<HTMLSelectElement>('#grey-country');
   [...new Set(state.greyIntel.map((item) => item.country).filter(Boolean))].sort().forEach((value) => {
@@ -529,11 +622,11 @@ export function renderGreyIntelligence(
     if (!container) return;
     container.textContent = '';
     items.forEach((item) => {
-      const card = element('article', 'intel-card grey-card');
+      const card = element('article', 'intel-card grey-card intelligence-row');
       const header = element('div', 'intel-card-header');
       header.append(element('span', 'provider-badge', 'مؤشرات فقط'), element('span', 'risk-label', item.risk_level));
       const meta = element('div', 'tag-list');
-      [item.source_type, item.data_sensitivity, item.leaked_data_type, item.country].filter(Boolean).forEach((value) => meta.append(element('span', '', value)));
+      [sourceTypeLabel(item.source_type), item.data_sensitivity, item.leaked_data_type, item.country].filter(Boolean).forEach((value) => meta.append(element('span', '', String(value))));
       if (item.affected_entities.length) {
         meta.append(element('span', '', `الجهات المتأثرة: ${item.affected_entities.slice(0, 4).join('، ')}`));
       }
@@ -581,12 +674,13 @@ export function renderGreyIntelligence(
         }
       });
       actions.append(open, save, task, report);
-      card.append(header, element('h3', '', item.title), element('p', 'intel-summary', item.summary_ar), meta, element('p', 'legal-warning compact-warning', item.legal_warning), actions);
+      card.append(header, element('h3', '', item.title), element('p', 'intel-summary', item.summary_ar), meta, actions);
       container.append(card);
     });
     if (!items.length) container.append(element('p', 'empty panel', 'لا توجد مؤشرات مطابقة. هيّئ المصادر الرمادية ثم اطلب الجلب.'));
   };
   view.querySelectorAll('#grey-search, #grey-country, #grey-risk, #grey-sensitivity').forEach((control) => control.addEventListener('input', draw));
+  bindTopicRail(view, '#grey-search', draw);
   draw();
 }
 
@@ -614,18 +708,19 @@ export function renderNewsIntelligence(
   setMessage: Message,
 ): void {
   view.innerHTML = `
-    <section class="page-heading">
-      <div><p class="eyebrow">الأخبار العربية</p><h2>مركز الأخبار والاستخبارات</h2>
-      <p class="muted">رصد متعدد المصادر مع تقييم وكيانات وتقارير قابلة للتنفيذ.</p></div>
+    <section class="page-heading intelligence-heading">
+      <div><h2>مركز الأخبار والاستخبارات</h2>
+      <p class="muted">موجز تحليلي يركز على المنطقة والأمن السيبراني والذكاء الاصطناعي.</p></div>
       ${canManageContent(state.role) ? '<button class="button primary compact" id="intelligence-refresh" type="button">طلب تحديث شامل</button>' : ''}
     </section>
+    ${topicRail()}
     <section class="intel-metrics">
       <article><span>العناصر</span><strong>${state.news.length}</strong></article>
       <article><span>عالية الأهمية</span><strong>${state.news.filter((item) => item.score >= 75).length}</strong></article>
       <article><span>المحفوظة</span><strong>${state.bookmarks.size}</strong></article>
       <article><span>المصادر النشطة</span><strong>${state.sources.filter((item) => item.enabled).length}</strong></article>
     </section>
-    <section class="panel intel-filter-panel">
+    <section class="panel intel-filter-panel glass-toolbar">
       <div class="intel-filters">
         <label class="intel-search-field">بحث<input id="intel-search" type="search" placeholder="ابحث في العنوان أو المصدر أو الوسوم..." /></label>
         <label>التصنيف<select id="intel-category"><option value="">الكل</option></select></label>
@@ -638,7 +733,10 @@ export function renderNewsIntelligence(
       <div class="card-actions"><button class="button secondary compact" id="bulk-report" type="button">تقرير من المحدد</button>
       <span id="intel-result-count" class="muted"></span></div>
     </section>
-    <section id="intelligence-results" class="intel-grid news-results"></section>
+    <div class="intelligence-workspace">
+      <section id="intelligence-results" class="intel-grid news-results intelligence-stream"></section>
+      ${topicInsights(state.news.filter((item) => item.status !== 'archived'))}
+    </div>
     <nav id="intel-pagination" class="intel-pagination" aria-label="صفحات النتائج"></nav>
   `;
 
@@ -732,6 +830,7 @@ export function renderNewsIntelligence(
   };
   view.querySelectorAll('#intel-search, #intel-category, #intel-country, #intel-provider, #intel-risk, #intel-sort, #intel-bookmarked')
     .forEach((control) => control.addEventListener('input', () => draw(true)));
+  bindTopicRail(view, '#intel-search', () => draw(true));
   draw();
 
   view.querySelector('#intelligence-refresh')?.addEventListener('click', async () => {
@@ -967,7 +1066,7 @@ export function renderAlerts(
   state.alerts.forEach((alert) => {
     const card = element('article', `alert-card ${alert.severity} ${alert.read ? 'read' : ''}`);
     const body = element('div');
-    body.append(element('span', 'provider-badge', alert.type), element('h3', '', alert.title), element('p', '', alert.message), element('small', '', formatDate(alert.createdAt)));
+    body.append(element('span', 'provider-badge', alertTypeLabel(alert.type)), element('h3', '', alert.title), element('p', '', alert.message), element('small', '', formatDate(alert.createdAt)));
     const button = element('button', 'button secondary compact', alert.read ? 'غير مقروء' : 'مقروء') as HTMLButtonElement;
     button.addEventListener('click', async () => {
       try {

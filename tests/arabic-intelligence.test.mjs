@@ -127,7 +127,7 @@ describe('Grey intelligence safety', () => {
 describe('Arabic source seeds and reports', () => {
   it('seeds all Arabic GDELT queries and regional sources', () => {
     const sources = buildArabicSeedSources();
-    expect(ARABIC_GDELT_QUERIES).toHaveLength(10);
+    expect(ARABIC_GDELT_QUERIES).toHaveLength(12);
     expect(ARABIC_RSS_SOURCES).toHaveLength(4);
     expect(sources.length).toBeGreaterThan(35);
     expect(sources.every((source) => source.language === 'ar')).toBe(true);
