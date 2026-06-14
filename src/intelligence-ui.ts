@@ -709,7 +709,7 @@ export function renderNewsIntelligence(
 ): void {
   view.innerHTML = `
     <section class="page-heading intelligence-heading">
-      <div><h2>مركز الأخبار والاستخبارات</h2>
+      <div><h2>مركز أخبار M3TM</h2>
       <p class="muted">موجز تحليلي يركز على المنطقة والأمن السيبراني والذكاء الاصطناعي.</p></div>
       ${canManageContent(state.role) ? '<button class="button primary compact" id="intelligence-refresh" type="button">طلب تحديث شامل</button>' : ''}
     </section>

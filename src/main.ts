@@ -946,7 +946,7 @@ function renderCurrentView(): void {
   const titles: Record<Route, string> = {
     dashboard: 'لوحة الرصد',
     intelligence: 'مركز الرصد العربي',
-    news: 'مركز الأخبار والاستخبارات',
+    news: 'مركز أخبار M3TM',
     'grey-intel': 'المصادر الرمادية والتسريبات',
     'repositories/intelligence': 'ذكاء المستودعات',
     watchlists: 'قوائم المراقبة',
