@@ -26,7 +26,7 @@ const serviceAccountValue = process.env.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED;
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: serviceAccountValue
-      ? admin.credential.cert(JSON.parse(serviceAccountValue))
+      ? admin.credential.cert(JSON.parse(serviceAccountValue.replace(/^\uFEFF/, '')))
       : admin.credential.applicationDefault(),
     projectId: process.env.FIREBASE_PROJECT_ID || undefined,
   });

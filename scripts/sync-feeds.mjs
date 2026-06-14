@@ -12,7 +12,7 @@ if (!serviceAccountValue) {
   throw new Error('FIREBASE_SERVICE_ACCOUNT_M3TM_RASED is required.');
 }
 
-const serviceAccount = JSON.parse(serviceAccountValue);
+const serviceAccount = JSON.parse(serviceAccountValue.replace(/^\uFEFF/, ''));
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
