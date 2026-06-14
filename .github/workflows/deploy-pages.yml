@@ -1,0 +1,48 @@
+name: Deploy GitHub Pages
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages-production
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - name: Deploy current build
+        id: deployment
+        uses: actions/deploy-pages@v5
