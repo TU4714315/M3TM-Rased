@@ -6,11 +6,7 @@ on:
       bootstrap_admin_email:
         description: Optionally create a configured admin and send a password setup email
         required: false
-        type: choice
-        options:
-          - ""
-          - moooom001@hotmail.com
-          - mohammed.e.z.m2@gmail.com
+        type: string
 
 permissions:
   contents: read

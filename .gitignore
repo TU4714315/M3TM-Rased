@@ -29,6 +29,7 @@ yarn-error.log
 # Environment
 .env
 .env.local
+m3tm-github-deployer-key.json
 
 # Temporary
 *.tmp
