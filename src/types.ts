@@ -143,10 +143,12 @@ export interface IntelligenceNewsItem {
   tags_ar?: string[];
   entities: IntelligenceEntities;
   score: number;
+  base_score?: number;
   importance?: ArabicImportance;
   risk_level?: ArabicRiskLevel;
   sentiment?: 'سلبي' | 'محايد' | 'إيجابي' | 'مختلط';
   confidence?: number;
+  relevance_score?: number;
   hash: string;
   rawPayload?: Record<string, unknown>;
   rawPayloadMetadataOnly?: Record<string, unknown>;
@@ -170,6 +172,8 @@ export interface IntelligenceSource {
   enabled: boolean;
   fetchIntervalMinutes: number;
   query?: string;
+  category_mode?: 'infer' | 'fixed';
+  intelligence_scope?: 'arabic' | 'grey';
   lastFetchedAt?: Timestamp | Date | null;
   lastError?: string;
   createdAt: Timestamp | Date;

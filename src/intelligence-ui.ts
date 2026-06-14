@@ -88,7 +88,7 @@ function providerLabel(provider: IntelligenceProvider): string {
     cisa_kev: 'CISA KEV',
     custom: 'مخصص',
   };
-  return labels[provider];
+  return labels[provider] || String(provider || 'مصدر');
 }
 
 function scoreClass(score: number): string {
@@ -96,6 +96,18 @@ function scoreClass(score: number): string {
   if (score >= 65) return 'high';
   if (score >= 40) return 'medium';
   return 'low';
+}
+
+function itemTimestamp(value: unknown): number {
+  const timestamp = value as { toMillis?: () => number; toDate?: () => Date };
+  if (typeof timestamp?.toMillis === 'function') return timestamp.toMillis();
+  if (typeof timestamp?.toDate === 'function') return timestamp.toDate().getTime();
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : [];
 }
 
 function buildNewsReport(items: IntelligenceNewsItem[]): string {
@@ -113,7 +125,7 @@ function newsCard(
   setMessage: Message,
   selected: Set<string>,
 ): HTMLElement {
-  const card = element('article', 'intel-card');
+  const card = element('article', 'intel-card news-result-card');
   const header = element('div', 'intel-card-header');
   const score = element('span', `score-badge ${scoreClass(item.score)}`, `${item.score}`);
   const identity = element('div', 'intel-card-identity');
@@ -130,17 +142,17 @@ function newsCard(
   const title = element('h3', '', item.title);
   const summary = element('p', 'intel-summary', item.summary_ar || item.summary || item.contentSnippet_ar || item.contentSnippet || 'لا يوجد ملخص متاح.');
   const tags = element('div', 'tag-list');
-  (item.tags_ar || item.tags).slice(0, 8).forEach((tag) => tags.append(element('span', '', tag)));
+  stringList(item.tags_ar?.length ? item.tags_ar : item.tags).slice(0, 5).forEach((tag) => tags.append(element('span', '', tag)));
 
   const details = document.createElement('details');
   details.className = 'intel-details';
   const detailsSummary = document.createElement('summary');
   detailsSummary.textContent = 'التفاصيل والكيانات';
   const entityText = [
-    ...item.entities.cves,
-    ...item.entities.domains,
-    ...item.entities.technologies,
-    ...item.entities.githubRepos,
+    ...stringList(item.entities?.cves),
+    ...stringList(item.entities?.domains),
+    ...stringList(item.entities?.technologies),
+    ...stringList(item.entities?.githubRepos),
   ].slice(0, 20);
   details.append(
     detailsSummary,
@@ -615,21 +627,25 @@ export function renderNewsIntelligence(
     </section>
     <section class="panel intel-filter-panel">
       <div class="intel-filters">
-        <label>بحث<input id="intel-search" type="search" placeholder="CVE، OSINT، شركة، تقنية..." /></label>
+        <label class="intel-search-field">بحث<input id="intel-search" type="search" placeholder="ابحث في العنوان أو المصدر أو الوسوم..." /></label>
         <label>التصنيف<select id="intel-category"><option value="">الكل</option></select></label>
         <label>الدولة<select id="intel-country"><option value="">الكل</option></select></label>
         <label>المزود<select id="intel-provider"><option value="">الكل</option></select></label>
         <label>مستوى الخطر<select id="intel-risk"><option value="">الكل</option><option>حرج</option><option>مرتفع</option><option>متوسط</option><option>منخفض</option></select></label>
+        <label>الترتيب<select id="intel-sort"><option value="relevance">الأكثر صلة</option><option value="recent">الأحدث</option><option value="risk">الأعلى خطراً</option></select></label>
         <label class="toggle"><input id="intel-bookmarked" type="checkbox" /><span>المحفوظة فقط</span></label>
       </div>
       <div class="card-actions"><button class="button secondary compact" id="bulk-report" type="button">تقرير من المحدد</button>
       <span id="intel-result-count" class="muted"></span></div>
     </section>
-    <section id="intelligence-results" class="intel-grid"></section>
+    <section id="intelligence-results" class="intel-grid news-results"></section>
+    <nav id="intel-pagination" class="intel-pagination" aria-label="صفحات النتائج"></nav>
   `;
 
   renderSourceAdmin(view, state, setMessage);
   const selected = new Set<string>();
+  const pageSize = 12;
+  let currentPage = 1;
   const category = view.querySelector<HTMLSelectElement>('#intel-category');
   const country = view.querySelector<HTMLSelectElement>('#intel-country');
   const provider = view.querySelector<HTMLSelectElement>('#intel-provider');
@@ -652,31 +668,70 @@ export function renderNewsIntelligence(
     country?.append(option);
   });
 
-  const draw = () => {
+  const draw = (resetPage = false) => {
+    if (resetPage) currentPage = 1;
     const container = view.querySelector('#intelligence-results');
     if (!container) return;
     const search = view.querySelector<HTMLInputElement>('#intel-search')?.value.trim().toLowerCase() || '';
     const selectedCategory = category?.value || '';
     const selectedProvider = provider?.value || '';
     const selectedRisk = view.querySelector<HTMLSelectElement>('#intel-risk')?.value || '';
+    const selectedSort = view.querySelector<HTMLSelectElement>('#intel-sort')?.value || 'relevance';
     const bookmarksOnly = view.querySelector<HTMLInputElement>('#intel-bookmarked')?.checked || false;
     const items = state.news.filter((item) => {
-      const haystack = `${item.title} ${item.summary_ar || item.summary} ${item.contentSnippet_ar || item.contentSnippet} ${item.source} ${(item.tags_ar || item.tags).join(' ')}`.toLowerCase();
+      const haystack = `${item.title} ${item.summary_ar || item.summary || ''} ${item.contentSnippet_ar || item.contentSnippet || ''} ${item.source} ${stringList(item.tags_ar?.length ? item.tags_ar : item.tags).join(' ')}`.toLowerCase();
       return (!search || haystack.includes(search))
+        && item.status !== 'archived'
         && (!selectedCategory || item.category === selectedCategory)
         && (!selectedProvider || item.provider === selectedProvider)
         && (!country?.value || item.country === country.value)
         && (!selectedRisk || item.risk_level === selectedRisk)
         && (!bookmarksOnly || state.bookmarks.has(item.id));
     });
+    items.sort((left, right) => {
+      if (selectedSort === 'recent') return itemTimestamp(right.publishedAt) - itemTimestamp(left.publishedAt);
+      if (selectedSort === 'risk') return Number(right.score || 0) - Number(left.score || 0);
+      const relevance = Number(right.relevance_score ?? right.score ?? 0) - Number(left.relevance_score ?? left.score ?? 0);
+      return relevance || itemTimestamp(right.publishedAt) - itemTimestamp(left.publishedAt);
+    });
+    const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+    currentPage = Math.min(currentPage, pageCount);
+    const start = (currentPage - 1) * pageSize;
+    const visibleItems = items.slice(start, start + pageSize);
     container.textContent = '';
-    items.forEach((item) => container.append(newsCard(item, state, setMessage, selected)));
+    visibleItems.forEach((item) => container.append(newsCard(item, state, setMessage, selected)));
     if (!items.length) container.append(element('p', 'empty panel', 'لا توجد نتائج مطابقة للفلاتر الحالية.'));
     const count = view.querySelector('#intel-result-count');
-    if (count) count.textContent = `${items.length} نتيجة`;
+    if (count) count.textContent = items.length
+      ? `عرض ${start + 1}–${Math.min(start + pageSize, items.length)} من ${items.length}`
+      : 'لا توجد نتائج';
+    const pagination = view.querySelector<HTMLElement>('#intel-pagination');
+    if (pagination) {
+      pagination.textContent = '';
+      if (pageCount > 1) {
+        const previous = element('button', 'button secondary compact', 'السابق') as HTMLButtonElement;
+        previous.type = 'button';
+        previous.disabled = currentPage === 1;
+        previous.addEventListener('click', () => {
+          currentPage -= 1;
+          draw();
+          view.querySelector('#intelligence-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        const indicator = element('span', 'muted', `صفحة ${currentPage} من ${pageCount}`);
+        const next = element('button', 'button secondary compact', 'التالي') as HTMLButtonElement;
+        next.type = 'button';
+        next.disabled = currentPage === pageCount;
+        next.addEventListener('click', () => {
+          currentPage += 1;
+          draw();
+          view.querySelector('#intelligence-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        pagination.append(previous, indicator, next);
+      }
+    }
   };
-  view.querySelectorAll('#intel-search, #intel-category, #intel-country, #intel-provider, #intel-risk, #intel-bookmarked')
-    .forEach((control) => control.addEventListener('input', draw));
+  view.querySelectorAll('#intel-search, #intel-category, #intel-country, #intel-provider, #intel-risk, #intel-sort, #intel-bookmarked')
+    .forEach((control) => control.addEventListener('input', () => draw(true)));
   draw();
 
   view.querySelector('#intelligence-refresh')?.addEventListener('click', async () => {

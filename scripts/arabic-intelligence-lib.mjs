@@ -17,6 +17,8 @@ export const ARABIC_CATEGORIES = [
   'العملات والطاقة', 'الكوارث والأزمات',
 ];
 
+const GENERAL_CATEGORY = 'أخبار عامة';
+
 export const ARABIC_KEYWORD_GROUPS = {
   الخليج: ['الخليج', 'دول الخليج', 'مجلس التعاون الخليجي', 'الخليج العربي', 'أمن الخليج', 'السعودية', 'الإمارات', 'قطر', 'الكويت', 'البحرين', 'عمان', 'اليمن', 'المنطقة الشرقية', 'الرياض', 'أبوظبي', 'دبي', 'الدوحة', 'المنامة', 'مسقط'],
   إيران: ['إيران', 'طهران', 'خامنئي', 'بزشكيان', 'رئيسي', 'الحرس الثوري', 'فيلق القدس', 'البرنامج النووي الإيراني', 'العقوبات على إيران', 'صواريخ إيران', 'نفوذ إيران', 'الميليشيات المدعومة من إيران'],
@@ -33,6 +35,9 @@ export const ARABIC_KEYWORD_GROUPS = {
   'الممرات البحرية': ['مضيق هرمز', 'باب المندب', 'البحر الأحمر', 'خليج عمان', 'الملاحة البحرية', 'ناقلات النفط', 'السفن التجارية', 'استهداف السفن', 'أمن الممرات البحرية', 'التحالف البحري'],
   'الذكاء الاصطناعي': ['الذكاء الاصطناعي', 'نماذج اللغة', 'وكلاء الذكاء الاصطناعي', 'LLM', 'AI agents', 'OpenAI', 'Gemini', 'Claude', 'DeepSeek', 'Qwen', 'نماذج مفتوحة', 'أتمتة'],
   'الأمن السيبراني': ['أمن سيبراني', 'اختراق', 'ثغرة', 'CVE', 'برمجيات خبيثة', 'فدية', 'ransomware', 'malware', 'phishing', 'تسريب بيانات', 'هجوم سيبراني', 'اختراق حكومي'],
+  'الطاقة والنفط': ['النفط', 'الطاقة', 'أوبك', 'أرامكو', 'ناقلات النفط', 'أسواق الطاقة', 'أسعار النفط', 'الغاز'],
+  'الاحتجاجات والاضطرابات': ['احتجاجات', 'اضطرابات', 'مظاهرات', 'اشتباكات', 'أزمة سياسية', 'عصيان'],
+  'العقوبات الدولية': ['عقوبات', 'مجلس الأمن', 'عقوبات أمريكية', 'عقوبات أوروبية', 'قائمة الإرهاب'],
 };
 
 const COUNTRIES = ['السعودية', 'الإمارات', 'قطر', 'الكويت', 'البحرين', 'عمان', 'اليمن', 'إيران', 'العراق', 'لبنان', 'باكستان', 'سوريا', 'الأردن', 'مصر', 'تركيا', 'إسرائيل', 'فلسطين', 'أمريكا', 'بريطانيا', 'الصين', 'روسيا'];
@@ -40,8 +45,29 @@ const ORGANIZATIONS = ['الحرس الثوري', 'فيلق القدس', 'حزب
 const PLACES = ['مضيق هرمز', 'باب المندب', 'البحر الأحمر', 'الخليج', 'بيروت', 'بغداد', 'طهران', 'صنعاء', 'إسلام آباد', 'الرياض', 'أبوظبي', 'دبي', 'الدوحة', 'الكويت', 'المنامة', 'مسقط'];
 const SECURITY_TERMS = ['تجسس', 'قصف', 'هجوم', 'ضربة', 'غارة', 'صاروخ', 'مسيرة', 'اختراق', 'تسريب', 'عقوبات', 'اغتيال', 'انفجار', 'خرق بيانات', 'فدية', 'CVE'];
 
+const NEGATIVE_NEWS_TERMS = [
+  'كرة القدم', 'الدوري', 'المباراة', 'مباريات', 'المنتخب', 'النادي', 'ريال مدريد',
+  'برشلونة', 'كأس العالم', 'هدف', 'لاعب', 'مدرب', 'الفن', 'الفنان', 'المسلسل',
+  'المهرجان', 'الأبراج', 'وصفة', 'موضة', 'تجميل', 'سياحة', 'ترفيه',
+];
+
+const ENGLISH_INTELLIGENCE_TERMS = [
+  'osint', 'cybersecurity', 'cyber security', 'threat intelligence', 'cve',
+  'vulnerability', 'exploit', 'ransomware', 'malware', 'data breach', 'security advisory',
+  'ai agent', 'agentic', 'llm', 'cloud security', 'github repository', 'gdelt',
+];
+
 function clean(value, max = 10_000) {
-  return String(value ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  return String(value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
 }
 
 function findTerms(text, terms) {
@@ -49,7 +75,7 @@ function findTerms(text, terms) {
   return terms.filter((term) => lower.includes(term.toLowerCase()));
 }
 
-export function classifyArabicCategory(input, fallback = 'الخليج') {
+export function classifyArabicCategory(input, fallback = GENERAL_CATEGORY) {
   const text = clean(input).toLowerCase();
   let best = fallback;
   let bestScore = 0;
@@ -61,6 +87,36 @@ export function classifyArabicCategory(input, fallback = 'الخليج') {
     }
   }
   return best;
+}
+
+export function scoreArabicRelevance(input, source = {}) {
+  const text = clean(input, 50_000).toLowerCase();
+  let keywordHits = 0;
+  let categoryHits = 0;
+  for (const keywords of Object.values(ARABIC_KEYWORD_GROUPS)) {
+    const hits = keywords.filter((keyword) => text.includes(keyword.toLowerCase())).length;
+    if (hits) categoryHits += 1;
+    keywordHits += hits;
+  }
+  const englishHits = ENGLISH_INTELLIGENCE_TERMS.filter((term) => text.includes(term)).length;
+  const negativeHits = NEGATIVE_NEWS_TERMS.filter((term) => text.includes(term)).length;
+  const topicalSource = source.category_mode === 'fixed' || source.source_type === 'gdelt_query';
+  const officialSource = source.source_type === 'government_agency' || source.source_type === 'official_news';
+  const regionalEntity = extractArabicEntities(text).countries.length > 0;
+  const score = Math.max(0, Math.min(100,
+    keywordHits * 7
+    + categoryHits * 5
+    + englishHits * 10
+    + (topicalSource ? 25 : 0)
+    + (officialSource && regionalEntity ? 10 : 0)
+    - negativeHits * 28,
+  ));
+  return {
+    score: Math.round(score),
+    relevant: topicalSource || score >= 18,
+    negativeHits,
+    keywordHits: keywordHits + englishHits,
+  };
 }
 
 export function extractArabicEntities(input) {
@@ -108,12 +164,22 @@ export function scoreArabicRisk(item, options = {}) {
 export function toArabicIntelligenceItem(item, source = {}) {
   const summary = clean(item.summary_ar || item.summary || item.contentSnippet, 4000);
   const content = clean(`${item.title} ${summary}`);
-  const category = source.category || classifyArabicCategory(content);
+  const inferredCategory = classifyArabicCategory(content);
+  const category = source.category_mode === 'fixed'
+    ? (source.category || inferredCategory)
+    : inferredCategory;
   const location = inferCountryRegion(content);
-  const risk = scoreArabicRisk(item, { reliability: source.reliability_score || source.priority });
+  const baseScore = Number(item.base_score ?? item.score ?? 25);
+  const risk = scoreArabicRisk({ ...item, score: baseScore }, {
+    baseScore,
+    reliability: source.reliability_score || source.priority,
+  });
+  const relevance = scoreArabicRelevance(content, source);
   const arabicEntities = extractArabicEntities(content);
   return {
     ...item,
+    title: clean(item.title, 500),
+    url: clean(item.url, 2000),
     source_type: source.source_type || 'public_news',
     language: source.language || item.language || 'ar',
     country: location.country,
@@ -128,6 +194,9 @@ export function toArabicIntelligenceItem(item, source = {}) {
     confidence: risk.confidence,
     sentiment: risk.risk_level === 'حرج' || risk.risk_level === 'مرتفع' ? 'سلبي' : 'محايد',
     score: risk.score,
+    base_score: baseScore,
+    relevance_score: relevance.score,
+    status: relevance.relevant ? (item.status || 'active') : 'archived',
     entities: {
       ...item.entities,
       countries: [...new Set([...(item.entities?.countries || []), ...arabicEntities.countries])],

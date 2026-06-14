@@ -217,6 +217,10 @@ async function syncSource(sourceDoc, watchlists) {
         ? toGreyMetadataItem(normalized, source)
         : toArabicIntelligenceItem(normalized, source);
       if (!item.title) continue;
+      if (!isGrey && item.status === 'archived') {
+        duplicateCount += 1;
+        continue;
+      }
       const collectionName = isGrey ? 'grey_intel_items' : 'news_items';
       const ref = db.collection(collectionName).doc(item.id);
       if ((await ref.get()).exists) {
