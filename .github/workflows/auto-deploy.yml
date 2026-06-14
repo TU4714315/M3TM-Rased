@@ -1,0 +1,101 @@
+name: Auto Deploy M3TM RASED
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: m3tm-rased-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: m3tm-rased-07246627-7b0bf
+
+jobs:
+  validate:
+    name: Validate frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Unit tests
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload built UI
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3tm-rased-dist
+          path: dist
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to Firebase Hosting
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production UI
+        run: npm run build
+
+      - name: Verify Firebase service account secret exists
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}' ]; then
+            echo 'Missing GitHub secret: FIREBASE_SERVICE_ACCOUNT_M3TM_RASED'
+            exit 1
+          fi
+
+      - name: Write Firebase credentials
+        run: |
+          cat > "$RUNNER_TEMP/firebase-key.json" <<'EOF'
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT_M3TM_RASED }}
+          EOF
+          chmod 600 "$RUNNER_TEMP/firebase-key.json"
+
+      - name: Deploy Firestore rules, indexes, and Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-key.json
+        run: |
+          npx firebase-tools deploy \
+            --only firestore:rules,firestore:indexes,hosting \
+            --project "$PROJECT_ID" \
+            --non-interactive
+
+      - name: Show deployment note
+        run: |
+          echo 'M3TM RASED deployed automatically to Firebase Hosting.'
+          echo 'If UI does not change, hard refresh the browser or open the site with ?v=${{ github.sha }}'
