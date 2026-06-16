@@ -14,7 +14,6 @@ import {
   deleteNews,
   deleteSource,
   importanceLabels,
-  requestSync,
   revokeInvite,
   saveSource,
   subscribeInvites,
@@ -45,9 +44,9 @@ import {
 import {
   renderAlerts,
   renderArabicIntelligenceHub,
+  renderCommandCenter,
   renderGreyIntelligence,
   renderIntelligenceReports,
-  renderNewsIntelligence,
   renderRepositoryIntelligence,
   renderWatchlists,
   type IntelligenceUiState,
@@ -375,8 +374,9 @@ function navButton(route: Route, label: string): string {
 function renderShell(): void {
   const profile = state.session.profile;
   if (!profile) return;
+  const unreadAlerts = state.alerts.filter((item) => !item.read).length;
   const adminLinks = canManageUsers(profile.role)
-    ? `${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
+    ? `<div class="nav-section">الإدارة</div>${navButton('sources', 'المصادر')}${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
     : '';
   app.innerHTML = `
     <div class="app-shell">
@@ -386,16 +386,16 @@ function renderShell(): void {
           <span><strong>RASED</strong><small>منصة الرصد</small></span>
         </a>
         <nav aria-label="التنقل الرئيسي">
-          ${navButton('dashboard', 'لوحة الرصد')}
-          ${navButton('intelligence', 'مركز الرصد العربي')}
-          ${navButton('news', 'مركز الأخبار')}
+          ${navButton('dashboard', 'لوحة القيادة')}
+          ${navButton('news', 'الأخبار العربية')}
           ${navButton('grey-intel', 'المصادر الرمادية')}
+          <a class="nav-link topic-link" href="#/news" data-route="topic-gulf">الخليج وإيران</a>
+          <a class="nav-link topic-link" href="#/news" data-route="topic-espionage">التجسس والاستخبارات</a>
+          <a class="nav-link topic-link" href="#/news" data-route="topic-strikes">الضربات والهجمات</a>
           ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
           ${navButton('watchlists', 'قوائم المراقبة')}
-          ${navButton('alerts', `التنبيهات${state.alerts.some((item) => !item.read) ? ' •' : ''}`)}
+          ${navButton('alerts', `التنبيهات${unreadAlerts ? ` ${unreadAlerts}` : ''}`)}
           ${navButton('reports', 'التقارير التنفيذية')}
-          ${navButton('archive', 'الأرشيف القديم')}
-          ${navButton('sources', 'المصادر')}
           ${adminLinks}
         </nav>
         <div class="sidebar-footer">
@@ -413,10 +413,17 @@ function renderShell(): void {
             <h1 id="page-title">لوحة الرصد</h1>
           </div>
           <div class="topbar-actions">
+            <label class="topbar-search">
+              <span>بحث</span>
+              <input type="search" placeholder="ابحث في الأخبار والمؤشرات..." aria-label="بحث عام" />
+            </label>
+            <div class="live-status"><span></span> المزامنة نشطة</div>
+            <a class="notification-button" href="#/alerts" aria-label="التنبيهات">جرس التنبيهات${unreadAlerts ? `<strong>${unreadAlerts}</strong>` : ''}</a>
+            <div class="admin-chip"><span>${escapeStatic(profile.role.toUpperCase())}</span><small>${escapeStatic(profile.displayName)}</small></div>
             <button class="button secondary compact" id="export-button" type="button">تصدير JSON</button>
-            <div class="live-status"><span></span> اتصال مباشر</div>
           </div>
         </header>
+        <span class="build-marker">M3TM_UI_VERSION=command-center-v1</span>
         <div id="global-message" class="notice" hidden></div>
         <main id="view" tabindex="-1"></main>
       </div>
@@ -451,65 +458,7 @@ function make(tag: string, className = '', text = ''): HTMLElement {
 function renderDashboard(view: HTMLElement): void {
   const profile = state.session.profile;
   if (!profile) return;
-  const lastRun = state.syncRuns[0];
-  view.innerHTML = `
-    <section class="page-heading">
-      <div><p class="eyebrow">نظرة تشغيلية</p><h2>كل ما يحتاج انتباهك الآن</h2></div>
-      ${
-        canManageContent(profile.role)
-          ? '<button class="button primary compact" id="request-sync" type="button">طلب مزامنة</button>'
-          : ''
-      }
-    </section>
-    <section class="metrics" aria-label="ملخص النظام">
-      <article><span>الأخبار</span><strong>${state.news.length}</strong><small>خبر محفوظ</small></article>
-      <article><span>المصادر</span><strong>${state.sources.length}</strong><small>${state.sources.filter((item) => item.status === 'active').length} مصدر نشط</small></article>
-      <article><span>آخر مزامنة</span><strong class="date-value">${lastRun ? formatDate(lastRun.finishedAt) : 'لا توجد'}</strong><small>${lastRun?.status === 'failed' ? 'تحتاج مراجعة' : 'حالة مستقرة'}</small></article>
-      <article><span>صلاحيتك</span><strong class="date-value">${profile.role.toUpperCase()}</strong><small>جلسة موثقة</small></article>
-    </section>
-    <section class="dashboard-grid">
-      <article class="panel">
-        <div class="panel-heading"><div><p class="eyebrow">أحدث الرصد</p><h3>آخر الأخبار</h3></div><a href="#/news">عرض الكل</a></div>
-        <div id="recent-news" class="compact-list"></div>
-      </article>
-      <article class="panel">
-        <div class="panel-heading"><div><p class="eyebrow">صحة المحرك</p><h3>سجل المزامنة</h3></div></div>
-        <div id="recent-sync" class="compact-list"></div>
-      </article>
-    </section>
-  `;
-
-  const newsList = view.querySelector('#recent-news');
-  state.news.slice(0, 5).forEach((item) => {
-    const row = make('div', 'compact-row');
-    const content = make('div');
-    content.append(make('strong', '', item.title), make('small', '', `${item.sourceName} · ${formatDate(item.publishedAt)}`));
-    row.append(content, make('span', `importance ${item.importance}`, importanceLabels[item.importance]));
-    newsList?.append(row);
-  });
-  if (!state.news.length) newsList?.append(make('p', 'empty', 'لا توجد أخبار بعد.'));
-
-  const syncList = view.querySelector('#recent-sync');
-  state.syncRuns.slice(0, 5).forEach((item) => {
-    const row = make('div', 'compact-row');
-    const content = make('div');
-    content.append(
-      make('strong', '', item.sourceName),
-      make('small', '', `${item.inserted} جديد · ${item.skipped} مكرر · ${formatDate(item.finishedAt)}`),
-    );
-    row.append(content, make('span', `sync-state ${item.status}`, item.status));
-    syncList?.append(row);
-  });
-  if (!state.syncRuns.length) syncList?.append(make('p', 'empty', 'لم تسجل عمليات مزامنة بعد.'));
-
-  view.querySelector('#request-sync')?.addEventListener('click', async () => {
-    try {
-      await requestSync(profile.id);
-      setMessage('تم تسجيل الطلب وسيعالجه محرك المزامنة في الدورة التالية.', 'success');
-    } catch (error) {
-      setMessage(friendlyError(error), 'error');
-    }
-  });
+  renderCommandCenter(view, intelligenceUiState(profile), setMessage);
 }
 
 function renderNews(view: HTMLElement): void {
@@ -944,9 +893,9 @@ function renderCurrentView(): void {
   });
   view.textContent = '';
   const titles: Record<Route, string> = {
-    dashboard: 'لوحة الرصد',
+    dashboard: 'لوحة القيادة',
     intelligence: 'مركز الرصد العربي',
-    news: 'مركز أخبار M3TM',
+    news: 'الأخبار العربية',
     'grey-intel': 'المصادر الرمادية والتسريبات',
     'repositories/intelligence': 'ذكاء المستودعات',
     watchlists: 'قوائم المراقبة',
@@ -966,7 +915,7 @@ function renderCurrentView(): void {
   if (state.route === 'dashboard') renderDashboard(view);
   const intelligenceState = intelligenceUiState(state.session.profile);
   if (state.route === 'intelligence') renderArabicIntelligenceHub(view, intelligenceState, setMessage);
-  if (state.route === 'news') renderNewsIntelligence(view, intelligenceState, setMessage);
+  if (state.route === 'news') renderCommandCenter(view, intelligenceState, setMessage);
   if (state.route === 'grey-intel') renderGreyIntelligence(view, intelligenceState, setMessage);
   if (state.route === 'repositories/intelligence') renderRepositoryIntelligence(view, intelligenceState, setMessage);
   if (state.route === 'watchlists') renderWatchlists(view, intelligenceState, setMessage);

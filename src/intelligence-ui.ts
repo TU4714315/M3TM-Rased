@@ -46,6 +46,7 @@ export interface IntelligenceUiState {
 }
 
 type Message = (message: string, type?: 'success' | 'error' | 'info') => void;
+type CommandAction = 'fetch-arabic' | 'seed-arabic' | 'executive-report';
 
 function element(tag: string, className = '', text = ''): HTMLElement {
   const item = document.createElement(tag);
@@ -195,6 +196,73 @@ function itemTimestamp(value: unknown): number {
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : [];
+}
+
+function activeNewsItems(state: IntelligenceUiState): IntelligenceNewsItem[] {
+  return state.news
+    .filter((item) => item.status !== 'archived')
+    .sort((left, right) => Number(right.score || 0) - Number(left.score || 0));
+}
+
+function riskRank(value?: string): number {
+  if (value === 'حرج') return 4;
+  if (value === 'مرتفع') return 3;
+  if (value === 'متوسط') return 2;
+  return 1;
+}
+
+function commandCenterRisk(state: IntelligenceUiState): { score: number; label: 'منخفض' | 'متوسط' | 'مرتفع' | 'حرج' } {
+  const news = activeNewsItems(state).slice(0, 40);
+  const grey = state.greyIntel.slice(0, 30);
+  const criticalAlerts = state.alerts.filter((item) => !item.read && item.severity === 'critical').length;
+  const base = [...news.map((item) => Number(item.score || 0)), ...grey.map((item) => riskRank(item.risk_level) * 22)];
+  const average = base.length ? base.reduce((total, value) => total + value, 0) / base.length : 18;
+  const score = Math.max(0, Math.min(100, Math.round(average + criticalAlerts * 7)));
+  return {
+    score,
+    label: score >= 85 ? 'حرج' : score >= 65 ? 'مرتفع' : score >= 40 ? 'متوسط' : 'منخفض',
+  };
+}
+
+function todayCount(items: IntelligenceNewsItem[]): number {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return items.filter((item) => itemTimestamp(item.publishedAt) >= start.getTime()).length;
+}
+
+function commandSection(title: string, items: IntelligenceNewsItem[], empty = 'لا توجد عناصر مطابقة حالياً.'): string {
+  return `
+    <article class="command-panel">
+      <div class="command-panel-heading"><h3>${escapeHtml(title)}</h3><span>${items.length}</span></div>
+      <div class="command-list">
+        ${items.slice(0, 4).map((item) => `
+          <a class="command-list-row" href="#/news" aria-label="${escapeHtml(item.title)}">
+            <span class="risk-dot ${scoreClass(item.score)}"></span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <small>${escapeHtml(item.source)} · ${escapeHtml(item.country || item.region || 'إقليمي')} · ${escapeHtml(item.risk_level || 'متوسط')}</small>
+          </a>
+        `).join('') || `<p class="empty mini-empty">${empty}</p>`}
+      </div>
+    </article>
+  `;
+}
+
+function greySummarySection(items: GreyIntelligenceItem[]): string {
+  return `
+    <article class="command-panel grey-command-panel">
+      <div class="command-panel-heading"><h3>المصادر الرمادية والتسريبات — مؤشرات فقط</h3><span>${items.length}</span></div>
+      <p class="grey-legal">يتم عرض مؤشرات وملخصات فقط. لا يتم تخزين أو عرض بيانات مسربة خام أو معلومات شخصية حساسة.</p>
+      <div class="command-list">
+        ${items.slice(0, 4).map((item) => `
+          <a class="command-list-row" href="#/grey-intel" aria-label="${escapeHtml(item.title)}">
+            <span class="risk-dot ${item.risk_level === 'حرج' ? 'critical' : item.risk_level === 'مرتفع' ? 'high' : 'medium'}"></span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <small>${escapeHtml(sourceTypeLabel(item.source_type))} · ${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small>
+          </a>
+        `).join('') || '<p class="empty mini-empty">لا توجد مؤشرات رمادية حالياً.</p>'}
+      </div>
+    </article>
+  `;
 }
 
 function buildNewsReport(items: IntelligenceNewsItem[]): string {
@@ -497,84 +565,124 @@ async function requestOperation(
   }
 }
 
-export function renderArabicIntelligenceHub(
+export function renderCommandCenter(
   view: HTMLElement,
   state: IntelligenceUiState,
   setMessage: Message,
 ): void {
   const manager = canManageContent(state.role);
-  const critical = state.news.filter((item) => item.risk_level === 'حرج').length
-    + state.greyIntel.filter((item) => item.risk_level === 'حرج').length;
-  const categories: Array<[string, number]> = [
-    ['أخبار عاجلة', state.news.filter((item) => item.importance === 'عاجلة').length],
-    ['الخليج', state.news.filter((item) => item.category === 'الخليج').length],
-    ['إيران', state.news.filter((item) => item.category === 'إيران').length],
-    ['الضربات والهجمات', state.news.filter((item) => item.category === 'الضربات والهجمات').length],
-    ['التجسس والاستخبارات', state.news.filter((item) => item.category === 'التجسس والاستخبارات').length],
-    ['التسريبات', state.greyIntel.length],
-    ['المصادر الرمادية', state.greyIntel.length],
-    ['لبنان والعراق', state.news.filter((item) => ['لبنان', 'العراق'].includes(item.category)).length],
-    ['باكستان', state.news.filter((item) => item.category === 'باكستان').length],
-    ['البحر الأحمر', state.news.filter((item) => item.category === 'البحر الأحمر').length],
-    ['مضيق هرمز', state.news.filter((item) => item.category === 'مضيق هرمز').length],
-    ['الحرس الثوري', state.news.filter((item) => item.category === 'الحرس الثوري الإيراني').length],
-    ['حزب الله', state.news.filter((item) => item.category === 'حزب الله').length],
-    ['الحوثيون', state.news.filter((item) => item.category === 'الحوثيون').length],
-    ['الأمن السيبراني', state.news.filter((item) => item.category === 'الأمن السيبراني').length],
-    ['الذكاء الاصطناعي', state.news.filter((item) => item.category === 'الذكاء الاصطناعي').length],
-    ['المستودعات المهمة', state.repositories.filter((item) => item.score >= 70).length],
-    ['التنبيهات', state.alerts.filter((item) => !item.read).length],
-  ];
+  const news = activeNewsItems(state);
+  const risk = commandCenterRisk(state);
+  const gulfIran = news.filter((item) =>
+    ['الخليج', 'إيران', 'السعودية', 'الحرس الثوري الإيراني', 'الأمن الخليجي'].includes(item.category)
+    || `${item.title} ${item.summary_ar || item.summary}`.includes('إيران')
+    || `${item.title} ${item.summary_ar || item.summary}`.includes('الخليج'));
+  const espionage = news.filter((item) =>
+    item.category === 'التجسس والاستخبارات'
+    || `${item.title} ${item.summary_ar || item.summary}`.includes('تجسس')
+    || `${item.title} ${item.summary_ar || item.summary}`.includes('استخبارات'));
+  const strikes = news.filter((item) =>
+    ['الضربات والهجمات', 'التصعيد العسكري', 'الصواريخ', 'الطائرات المسيرة'].includes(item.category)
+    || ['ضربة', 'هجوم', 'قصف', 'غارة', 'استهداف'].some((term) => `${item.title} ${item.summary_ar || item.summary}`.includes(term)));
+  const criticalAlerts = state.alerts.filter((item) => !item.read && item.severity === 'critical').length;
   view.innerHTML = `
-    <section class="arabic-hero">
-      <div><p class="eyebrow">M3TM RASED</p><h2>مركز الرصد العربي</h2>
-      <p>لوحة تحليل محايدة للأخبار الإقليمية، المخاطر، المؤشرات العامة، والمستودعات التقنية.</p></div>
-      <div class="risk-orb ${critical ? 'critical' : ''}"><span>المخاطر الحرجة</span><strong>${critical}</strong></div>
-    </section>
-    <section class="hub-actions">
-      <button class="button secondary" id="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر العربية</button>
-      <button class="button secondary" id="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
-      <button class="button primary" id="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
-      <button class="button primary" id="fetch-grey" ${manager ? '' : 'disabled'}>جلب مؤشرات التسريبات</button>
-      <button class="button secondary" id="create-executive-report">إنشاء تقرير تنفيذي</button>
-      <a class="button secondary" href="#/sources">إدارة المصادر</a>
-    </section>
-    <section class="risk-dashboard">
-      ${categories.map(([name, value]) => `<article><span>${name}</span><strong>${value}</strong></article>`).join('')}
-    </section>
-    <section class="dashboard-grid">
-      <article class="panel"><div class="panel-heading"><h3>أحدث الأخبار العربية</h3><a href="#/news">عرض الكل</a></div>
-        <div class="compact-list">${state.news.slice(0, 8).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.source)} · ${escapeHtml(item.risk_level || 'متوسط')}</small></div><span class="score-badge ${scoreClass(item.score)}">${item.score}</span></div>`).join('') || '<p class="empty">ابدأ بتهيئة المصادر ثم اطلب الجلب.</p>'}</div>
-      </article>
-      <article class="panel"><div class="panel-heading"><h3>مؤشرات فقط</h3><a href="#/grey-intel">عرض المؤشرات</a></div>
-        <div class="compact-list">${state.greyIntel.slice(0, 6).map((item) => `<div class="compact-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small></div></div>`).join('') || '<p class="empty">لا توجد مؤشرات عامة بعد.</p>'}</div>
-      </article>
+    <section class="command-center" data-ui-version="M3TM_UI_VERSION=command-center-v1">
+      <section class="command-hero">
+        <div>
+          <div class="command-brand"><span>M3TM RASED</span><strong>مركز الرصد العربي</strong></div>
+          <h2>لوحة الرصد الاستخباري</h2>
+          <p>رصد عربي فوري للأخبار والمؤشرات والمخاطر والمستودعات</p>
+          <div class="command-actions">
+            <button class="button primary" data-command-action="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
+            <button class="button secondary" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر</button>
+            <button class="button secondary" data-command-action="executive-report">إنشاء تقرير تنفيذي</button>
+          </div>
+        </div>
+        <aside class="risk-meter-card">
+          <span>مؤشر الخطر الإقليمي</span>
+          <strong>${risk.score}</strong>
+          <meter min="0" max="100" value="${risk.score}"></meter>
+          <div><small>منخفض</small><small>متوسط</small><small>مرتفع</small><small>حرج</small></div>
+          <b class="risk-label">${risk.label}</b>
+        </aside>
+      </section>
+
+      <section class="command-kpis" aria-label="مؤشرات الرصد">
+        <article><span>أخبار اليوم</span><strong>${todayCount(news)}</strong><small>خبر نشط</small></article>
+        <article><span>مؤشرات رمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
+        <article><span>تنبيهات حرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
+        <article><span>مصادر فعالة</span><strong>${state.sources.filter((item) => item.enabled).length}</strong><small>مصدر مراقبة</small></article>
+      </section>
+
+      <section class="command-main-grid">
+        <article class="command-panel featured-events">
+          <div class="command-panel-heading"><h3>الأحداث الأعلى أهمية</h3><a href="#/news">فتح الأخبار العربية</a></div>
+          <div class="featured-card-stack"></div>
+        </article>
+        ${greySummarySection(state.greyIntel)}
+        ${commandSection('الخليج وإيران', gulfIran)}
+        ${commandSection('التجسس والاستخبارات', espionage)}
+        ${commandSection('الضربات والهجمات', strikes)}
+        <article class="command-panel">
+          <div class="command-panel-heading"><h3>ذكاء المستودعات</h3><a href="#/repositories/intelligence">عرض الكل</a></div>
+          <div class="command-list">
+            ${state.repositories.slice(0, 4).map((item) => `
+              <a class="command-list-row" href="#/repositories/intelligence">
+                <span class="risk-dot ${scoreClass(item.score)}"></span>
+                <strong>${escapeHtml(item.fullName)}</strong>
+                <small>${escapeHtml(item.language || 'غير محدد')} · ★ ${item.stars} · ${escapeHtml(item.implementationPriority)}</small>
+              </a>
+            `).join('') || '<p class="empty mini-empty">لا توجد مستودعات مرصودة حالياً.</p>'}
+          </div>
+        </article>
+      </section>
     </section>
   `;
-  view.querySelector('#seed-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-arabic', 'arabic', 'تم تسجيل تهيئة المصادر العربية وسيبدأ جلبها.'));
-  view.querySelector('#seed-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'seed-grey', 'grey', 'تم تسجيل تهيئة المصادر الرمادية الآمنة.'));
-  view.querySelector('#fetch-arabic')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'arabic', 'تم تسجيل طلب جلب الأخبار العربية.'));
-  view.querySelector('#fetch-grey')?.addEventListener('click', () => void requestOperation(state, setMessage, 'refresh', 'grey', 'تم تسجيل طلب جلب مؤشرات التسريبات العامة.'));
-  view.querySelector('#create-executive-report')?.addEventListener('click', async () => {
-    try {
-      await createArabicIntelligenceReport({
-        type: 'موجز استخباري إقليمي',
-        title: `الموجز التنفيذي - ${new Date().toLocaleDateString('ar-SA')}`,
-        coverage: 'الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني',
-        executiveSummary: `تحليل ${state.news.length} خبر و${state.greyIntel.length} مؤشر عام.`,
-        content: executiveReportContent(state.news, state.greyIntel),
-        newsIds: state.news.slice(0, 100).map((item) => item.id),
-        greyIntelIds: state.greyIntel.slice(0, 100).map((item) => item.id),
-        repositoryIds: state.repositories.filter((item) => item.saved).map((item) => item.id),
-        riskLevel: critical ? 'حرج' : 'متوسط',
-        legalNotice,
-        createdBy: state.userId,
-      });
-      setMessage('تم إنشاء مسودة التقرير التنفيذي العربي.', 'success');
-    } catch (error) {
-      setMessage(friendlyError(error), 'error');
-    }
+
+  const stack = view.querySelector('.featured-card-stack');
+  const selected = new Set<string>();
+  news.slice(0, 3).forEach((item) => stack?.append(newsCard(item, state, setMessage, selected)));
+  if (!news.length) stack?.append(element('p', 'empty mini-empty', 'لا توجد أخبار نشطة حالياً. شغّل تهيئة المصادر ثم جلب الأخبار.'));
+
+  view.querySelectorAll<HTMLButtonElement>('[data-command-action]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const action = button.dataset.commandAction as CommandAction;
+      if (action === 'fetch-arabic') {
+        await requestOperation(state, setMessage, 'refresh', 'arabic', 'تم تسجيل طلب جلب الأخبار العربية.');
+      }
+      if (action === 'seed-arabic') {
+        await requestOperation(state, setMessage, 'seed-arabic', 'arabic', 'تم تسجيل تهيئة المصادر العربية.');
+      }
+      if (action === 'executive-report') {
+        try {
+          await createArabicIntelligenceReport({
+            type: 'موجز استخباري إقليمي',
+            title: `الموجز التنفيذي - ${new Date().toLocaleDateString('ar-SA')}`,
+            coverage: 'الخليج وإيران والعراق ولبنان واليمن وباكستان والأمن السيبراني',
+            executiveSummary: `تحليل ${news.length} خبر و${state.greyIntel.length} مؤشر عام.`,
+            content: executiveReportContent(news, state.greyIntel),
+            newsIds: news.slice(0, 100).map((item) => item.id),
+            greyIntelIds: state.greyIntel.slice(0, 100).map((item) => item.id),
+            repositoryIds: state.repositories.filter((item) => item.saved).map((item) => item.id),
+            riskLevel: risk.label,
+            legalNotice,
+            createdBy: state.userId,
+          });
+          setMessage('تم إنشاء مسودة التقرير التنفيذي.', 'success');
+        } catch (error) {
+          setMessage(friendlyError(error), 'error');
+        }
+      }
+    });
   });
+}
+
+export function renderArabicIntelligenceHub(
+  view: HTMLElement,
+  state: IntelligenceUiState,
+  setMessage: Message,
+): void {
+  renderCommandCenter(view, state, setMessage);
 }
 
 export function renderGreyIntelligence(
