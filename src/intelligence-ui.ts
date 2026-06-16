@@ -641,61 +641,145 @@ export function renderCommandCenter(
     || ['ضربة', 'هجوم', 'قصف', 'غارة', 'استهداف'].some((term) => `${item.title} ${item.summary_ar || item.summary}`.includes(term)));
   const criticalAlerts = state.alerts.filter((item) => !item.read && item.severity === 'critical').length;
   const latest = latestSync(state);
+  const riskBuckets = {
+    critical: news.filter((item) => Number(item.score || 0) >= 85).length,
+    high: news.filter((item) => Number(item.score || 0) >= 65 && Number(item.score || 0) < 85).length,
+    medium: news.filter((item) => Number(item.score || 0) >= 40 && Number(item.score || 0) < 65).length,
+    low: news.filter((item) => Number(item.score || 0) < 40).length,
+  };
+  const countryCounts = [...new Set(news.map((item) => item.country || item.region).filter(Boolean))]
+    .map((country) => ({
+      country: String(country),
+      count: news.filter((item) => (item.country || item.region) === country).length,
+    }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 5);
+  const unreadAlerts = state.alerts.filter((item) => !item.read).slice(0, 3);
+  const activeSourceCount = state.sources.filter((item) => item.enabled).length;
+  const failedSourceCount = state.sources.filter((item) => item.lastError).length;
   view.innerHTML = `
-    <section class="command-center" data-ui-version="M3TM_UI_VERSION=command-center-v1">
-      <section class="command-hero">
-        <div>
-          <div class="command-brand"><span>M3TM.RASEED</span><strong>مركز الرصد العربي</strong></div>
-          <h2>لوحة الرصد الاستخباري</h2>
-          <p>رصد. تحليل. تنبيه. تقرير.</p>
-          <div class="command-actions">
-            <button class="button primary" data-command-action="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
-            <button class="button secondary" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر العربية</button>
-            <button class="button secondary" data-command-action="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
-            <button class="button secondary" data-command-action="executive-report">إنشاء تقرير تنفيذي</button>
-          </div>
-        </div>
-        <aside class="risk-meter-card">
-          <span>مؤشر الخطر الإقليمي</span>
-          <strong>${risk.score}</strong>
-          <meter min="0" max="100" value="${risk.score}"></meter>
-          <div><small>منخفض</small><small>متوسط</small><small>مرتفع</small><small>حرج</small></div>
-          <b class="risk-label">${risk.label}</b>
-          <div class="risk-tags"><span>الخليج</span><span>إيران</span><span>البحر الأحمر</span><span>تسريبات</span><span>تجسس</span></div>
+    <section class="command-center command-center-v2" data-ui-version="M3TM_UI_VERSION=command-center-v2">
+      <section class="command-shell-grid">
+        <aside class="risk-command-rail" aria-label="مؤشرات الخطر">
+          <article class="operator-card">
+            <span>المشرف العام</span>
+            <strong>${escapeHtml(state.role.toUpperCase())}</strong>
+            <small>آخر مزامنة: ${latest ? formatDate(latest.finishedAt) : 'لم تبدأ بعد'}</small>
+          </article>
+          <article class="regional-risk-gauge">
+            <span>مؤشر الخطر الإقليمي</span>
+            <div class="risk-gauge-ring ${scoreClass(risk.score)}" style="--risk-score:${risk.score}">
+              <strong>${risk.score}</strong>
+              <small>${risk.label}</small>
+            </div>
+            <div class="risk-scale"><small>0</small><small>100</small></div>
+            <div class="risk-sparkline" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </article>
+          <article class="risk-distribution-panel">
+            <h3>توزيع مستويات الخطر</h3>
+            ${[
+              ['حرج', riskBuckets.critical, 'critical'],
+              ['مرتفع', riskBuckets.high, 'high'],
+              ['متوسط', riskBuckets.medium, 'medium'],
+              ['منخفض', riskBuckets.low, 'low'],
+            ].map(([label, count, className]) => `
+              <div class="risk-bar-row ${className}">
+                <span>${label}</span>
+                <b>${count}</b>
+                <i style="--bar:${Math.min(100, Number(count) * 12 + 8)}%"></i>
+              </div>
+            `).join('')}
+          </article>
+          <article class="country-activity-panel">
+            <h3>أعلى الدول نشاطاً</h3>
+            <div class="country-list">
+              ${countryCounts.map((item) => `<p><span>${escapeHtml(item.country)}</span><strong>${item.count}</strong></p>`).join('') || '<p><span>لا توجد بيانات بعد</span><strong>0</strong></p>'}
+            </div>
+          </article>
         </aside>
-      </section>
 
-      <section class="command-kpis" aria-label="مؤشرات الرصد">
-        <article><span>أخبار اليوم</span><strong>${todayCount(news)}</strong><small>خبر نشط</small></article>
-        <article><span>مؤشرات رمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
-        <article><span>تنبيهات حرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
-        <article><span>مصادر فعالة</span><strong>${state.sources.filter((item) => item.enabled).length}</strong><small>مصدر مراقبة</small></article>
-        <article><span>آخر مزامنة</span><strong class="kpi-date">${latest ? formatDate(latest.finishedAt) : 'لا توجد'}</strong><small>${latest ? latest.status : 'ابدأ بالتهيئة والجلب'}</small></article>
-      </section>
+        <main class="mission-command-column">
+          <section class="mission-hero-panel">
+            <div class="mission-map" aria-hidden="true">
+              <span class="map-dot gulf"></span>
+              <span class="map-dot iran"></span>
+              <span class="map-dot levant"></span>
+              <span class="map-dot redsea"></span>
+              <span class="map-dot pakistan"></span>
+            </div>
+            <div class="mission-copy">
+              <div class="command-brand"><span>M3TM.RASEED</span><strong>مركز الرصد العربي</strong></div>
+              <h2>لوحة الرصد الاستخباري</h2>
+              <p>رصد عربي فوري للأخبار والمؤشرات والمخاطر والمستودعات، مع ملخصات تنفيذية قابلة للتحويل إلى تقارير ومهام متابعة.</p>
+              <div class="command-actions">
+                <button class="button primary" data-command-action="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
+                <button class="button secondary warm" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر</button>
+                <button class="button secondary" data-command-action="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
+                <button class="button secondary" data-command-action="executive-report">إنشاء تقرير تنفيذي</button>
+              </div>
+            </div>
+          </section>
 
-      <section class="command-main-grid">
-        <article class="command-panel featured-events">
-          <div class="command-panel-heading"><h3>الأحداث الأعلى أهمية</h3><a href="#/news">فتح الأخبار العربية</a></div>
-          <div class="featured-card-stack"></div>
-        </article>
-        ${greySummarySection(state.greyIntel)}
-        ${commandSection('الخليج وإيران', gulfIran)}
-        ${commandSection('التجسس والاستخبارات', espionage)}
-        ${commandSection('الضربات والهجمات', strikes)}
-        ${sourceStatusPanel(state)}
-        ${watchlistPanel(state)}
-        <article class="command-panel">
-          <div class="command-panel-heading"><h3>ذكاء المستودعات</h3><a href="#/repositories/intelligence">عرض الكل</a></div>
-          <div class="command-list">
-            ${state.repositories.slice(0, 4).map((item) => `
-              <a class="command-list-row" href="#/repositories/intelligence">
-                <span class="risk-dot ${scoreClass(item.score)}"></span>
-                <strong>${escapeHtml(item.fullName)}</strong>
-                <small>${escapeHtml(item.language || 'غير محدد')} · ★ ${item.stars} · ${escapeHtml(item.implementationPriority)}</small>
-              </a>
-            `).join('') || '<p class="empty mini-empty">لا توجد مستودعات مرصودة حالياً.</p>'}
-          </div>
-        </article>
+          <section class="ops-metrics-strip" aria-label="مؤشرات الرصد">
+            <article><span>أخبار اليوم</span><strong>${todayCount(news)}</strong><small>خبر نشط</small></article>
+            <article><span>مؤشرات رمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
+            <article><span>تنبيهات حرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
+            <article><span>مصادر فعالة</span><strong>${activeSourceCount}</strong><small>${failedSourceCount ? `${failedSourceCount} مصدر يحتاج مراجعة` : 'مزامنة مستقرة'}</small></article>
+          </section>
+
+          <section class="mission-feed-grid">
+            <article class="command-panel featured-events mission-feed-panel">
+              <div class="command-panel-heading"><h3>الأحداث الأعلى أهمية</h3><a href="#/news">فتح الأخبار العربية</a></div>
+              <div class="featured-card-stack"></div>
+            </article>
+            <div class="mission-side-stack">
+              ${commandSection('الخليج وإيران', gulfIran)}
+              ${greySummarySection(state.greyIntel)}
+              <article class="command-panel alert-command-panel">
+                <div class="command-panel-heading"><h3>أهم التنبيهات</h3><a href="#/alerts">عرض الكل</a></div>
+                <div class="command-list">
+                  ${unreadAlerts.map((item) => `
+                    <a class="command-list-row" href="#/alerts">
+                      <span class="risk-dot ${item.severity === 'critical' ? 'critical' : 'high'}"></span>
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <small>${escapeHtml(item.message)}</small>
+                    </a>
+                  `).join('') || '<p class="empty mini-empty">لا توجد تنبيهات غير مقروءة.</p>'}
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="tactical-grid">
+            ${commandSection('التجسس والاستخبارات', espionage)}
+            ${commandSection('الضربات والهجمات', strikes)}
+            <article class="command-panel repository-command-panel">
+              <div class="command-panel-heading"><h3>ذكاء المستودعات</h3><a href="#/repositories/intelligence">عرض الكل</a></div>
+              <div class="command-list">
+                ${state.repositories.slice(0, 4).map((item) => `
+                  <a class="command-list-row" href="#/repositories/intelligence">
+                    <span class="risk-dot ${scoreClass(item.score)}"></span>
+                    <strong>${escapeHtml(item.fullName)}</strong>
+                    <small>${escapeHtml(item.language || 'غير محدد')} · ★ ${item.stars} · ${escapeHtml(item.implementationPriority)}</small>
+                  </a>
+                `).join('') || '<p class="empty mini-empty">لا توجد مستودعات مرصودة حالياً.</p>'}
+              </div>
+            </article>
+          </section>
+        </main>
+
+        <aside class="systems-command-rail" aria-label="حالة النظام">
+          ${sourceStatusPanel(state)}
+          ${watchlistPanel(state)}
+          <article class="command-panel system-health-panel">
+            <div class="command-panel-heading"><h3>حالة النظام</h3><span>${latest ? latest.status : 'جاهز'}</span></div>
+            <div class="status-list">
+              <div class="status-row"><strong>مصادر الأخبار</strong><small>${activeSourceCount} مصدر فعال</small><span class="status-pill ${activeSourceCount ? 'active' : 'inactive'}">${activeSourceCount ? 'متصل' : 'غير مهيأ'}</span></div>
+              <div class="status-row"><strong>المصادر الرمادية</strong><small>${state.greyIntel.length} مؤشر</small><span class="status-pill active">مؤشرات فقط</span></div>
+              <div class="status-row"><strong>التنبيهات</strong><small>${state.alerts.length} تنبيه مسجل</small><span class="status-pill ${criticalAlerts ? 'inactive' : 'active'}">${criticalAlerts ? 'مراجعة' : 'مستقر'}</span></div>
+            </div>
+          </article>
+        </aside>
       </section>
     </section>
   `;

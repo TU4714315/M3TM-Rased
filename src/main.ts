@@ -423,7 +423,7 @@ function renderShell(): void {
             <button class="button secondary compact" id="export-button" type="button">تصدير JSON</button>
           </div>
         </header>
-        <span class="build-marker">M3TM_UI_VERSION=command-center-v1</span>
+        <span class="build-marker">M3TM_UI_VERSION=command-center-v2</span>
         <div id="global-message" class="notice" hidden></div>
         <main id="view" tabindex="-1"></main>
       </div>
