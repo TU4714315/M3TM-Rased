@@ -64,7 +64,7 @@ export async function fetchFeed(urlValue, redirects = 0, options = {}) {
       signal: controller.signal,
       headers: {
         accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9',
-        'user-agent': 'M3TM-RASED-FeedSync/1.0',
+        'user-agent': 'M3TM.RASEED-FeedSync/1.0',
       },
     });
     if (response.status >= 300 && response.status < 400) {

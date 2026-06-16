@@ -1,4 +1,4 @@
-name: Auto Deploy M3TM RASED
+name: Auto Deploy M3TM.RASEED
 
 on:
   push:
@@ -97,5 +97,5 @@ jobs:
 
       - name: Show deployment note
         run: |
-          echo 'M3TM RASED deployed automatically to Firebase Hosting.'
+          echo 'M3TM.RASEED deployed automatically to Firebase Hosting.'
           echo 'If UI does not change, hard refresh the browser or open the site with ?v=${{ github.sha }}'

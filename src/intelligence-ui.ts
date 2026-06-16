@@ -46,7 +46,7 @@ export interface IntelligenceUiState {
 }
 
 type Message = (message: string, type?: 'success' | 'error' | 'info') => void;
-type CommandAction = 'fetch-arabic' | 'seed-arabic' | 'executive-report';
+type CommandAction = 'fetch-arabic' | 'seed-arabic' | 'seed-grey' | 'executive-report';
 
 function element(tag: string, className = '', text = ''): HTMLElement {
   const item = document.createElement(tag);
@@ -260,6 +260,58 @@ function greySummarySection(items: GreyIntelligenceItem[]): string {
             <small>${escapeHtml(sourceTypeLabel(item.source_type))} · ${escapeHtml(item.data_sensitivity)} · ${escapeHtml(item.risk_level)}</small>
           </a>
         `).join('') || '<p class="empty mini-empty">لا توجد مؤشرات رمادية حالياً.</p>'}
+      </div>
+    </article>
+  `;
+}
+
+function latestSync(state: IntelligenceUiState): NewsFetchLog | null {
+  return [...state.fetchLogs].sort((left, right) => itemTimestamp(right.finishedAt) - itemTimestamp(left.finishedAt))[0] || null;
+}
+
+function sourceStatusPanel(state: IntelligenceUiState): string {
+  const latest = latestSync(state);
+  const status = (provider: IntelligenceProvider, scope?: 'arabic' | 'grey') => {
+    const sources = state.sources.filter((item) => item.provider === provider && (!scope || item.intelligence_scope === scope));
+    return {
+      active: sources.filter((item) => item.enabled).length,
+      total: sources.length,
+      failed: sources.filter((item) => item.lastError).length,
+    };
+  };
+  const rows: Array<[string, ReturnType<typeof status>]> = [
+    ['GDELT', status('gdelt', 'arabic')],
+    ['RSS عربي', status('rss', 'arabic')],
+    ['Grey Intel', status('rss', 'grey')],
+    ['GitHub Radar', status('github')],
+  ];
+  return `
+    <article class="command-panel source-status-panel">
+      <div class="command-panel-heading"><h3>حالة المصادر والمزامنة</h3><span>${latest ? latest.status : 'لا توجد'}</span></div>
+      <div class="status-list">
+        ${rows.map(([label, item]) => `
+          <div class="status-row">
+            <strong>${label}</strong>
+            <small>${item.active}/${item.total || 0} نشط${item.failed ? ` · ${item.failed} فشل` : ''}</small>
+            <span class="status-pill ${item.active ? 'active' : 'inactive'}">${item.active ? 'فعال' : 'غير مهيأ'}</span>
+          </div>
+        `).join('')}
+      </div>
+      <p class="last-sync">آخر مزامنة: ${latest ? `${formatDate(latest.finishedAt)} · ${latest.insertedCount} جديد · ${latest.duplicateCount} مكرر` : 'لم تسجل عملية مزامنة بعد.'}</p>
+    </article>
+  `;
+}
+
+function watchlistPanel(state: IntelligenceUiState): string {
+  const defaults = ['إيران + الخليج', 'الحوثيون + البحر الأحمر', 'تسريب + السعودية', 'CVE + exploited', 'حزب الله + ضربة'];
+  const items = state.watchlists.length
+    ? state.watchlists.slice(0, 5).map((item) => `${item.name}${item.enabled ? '' : ' · متوقف'}`)
+    : defaults;
+  return `
+    <article class="command-panel watchlist-panel">
+      <div class="command-panel-heading"><h3>قوائم المراقبة</h3><a href="#/watchlists">إدارة</a></div>
+      <div class="watch-chip-list">
+        ${items.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
       </div>
     </article>
   `;
@@ -547,6 +599,9 @@ function executiveReportContent(
     '',
     '## تنبيه قانوني',
     legalNotice,
+    '',
+    '---',
+    'تقرير صادر عن منصة M3TM.RASEED — مركز الرصد العربي',
   ].join('\n');
 }
 
@@ -585,16 +640,18 @@ export function renderCommandCenter(
     ['الضربات والهجمات', 'التصعيد العسكري', 'الصواريخ', 'الطائرات المسيرة'].includes(item.category)
     || ['ضربة', 'هجوم', 'قصف', 'غارة', 'استهداف'].some((term) => `${item.title} ${item.summary_ar || item.summary}`.includes(term)));
   const criticalAlerts = state.alerts.filter((item) => !item.read && item.severity === 'critical').length;
+  const latest = latestSync(state);
   view.innerHTML = `
     <section class="command-center" data-ui-version="M3TM_UI_VERSION=command-center-v1">
       <section class="command-hero">
         <div>
-          <div class="command-brand"><span>M3TM RASED</span><strong>مركز الرصد العربي</strong></div>
+          <div class="command-brand"><span>M3TM.RASEED</span><strong>مركز الرصد العربي</strong></div>
           <h2>لوحة الرصد الاستخباري</h2>
-          <p>رصد عربي فوري للأخبار والمؤشرات والمخاطر والمستودعات</p>
+          <p>رصد. تحليل. تنبيه. تقرير.</p>
           <div class="command-actions">
             <button class="button primary" data-command-action="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
-            <button class="button secondary" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر</button>
+            <button class="button secondary" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر العربية</button>
+            <button class="button secondary" data-command-action="seed-grey" ${manager ? '' : 'disabled'}>تهيئة المصادر الرمادية</button>
             <button class="button secondary" data-command-action="executive-report">إنشاء تقرير تنفيذي</button>
           </div>
         </div>
@@ -604,6 +661,7 @@ export function renderCommandCenter(
           <meter min="0" max="100" value="${risk.score}"></meter>
           <div><small>منخفض</small><small>متوسط</small><small>مرتفع</small><small>حرج</small></div>
           <b class="risk-label">${risk.label}</b>
+          <div class="risk-tags"><span>الخليج</span><span>إيران</span><span>البحر الأحمر</span><span>تسريبات</span><span>تجسس</span></div>
         </aside>
       </section>
 
@@ -612,6 +670,7 @@ export function renderCommandCenter(
         <article><span>مؤشرات رمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
         <article><span>تنبيهات حرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
         <article><span>مصادر فعالة</span><strong>${state.sources.filter((item) => item.enabled).length}</strong><small>مصدر مراقبة</small></article>
+        <article><span>آخر مزامنة</span><strong class="kpi-date">${latest ? formatDate(latest.finishedAt) : 'لا توجد'}</strong><small>${latest ? latest.status : 'ابدأ بالتهيئة والجلب'}</small></article>
       </section>
 
       <section class="command-main-grid">
@@ -623,6 +682,8 @@ export function renderCommandCenter(
         ${commandSection('الخليج وإيران', gulfIran)}
         ${commandSection('التجسس والاستخبارات', espionage)}
         ${commandSection('الضربات والهجمات', strikes)}
+        ${sourceStatusPanel(state)}
+        ${watchlistPanel(state)}
         <article class="command-panel">
           <div class="command-panel-heading"><h3>ذكاء المستودعات</h3><a href="#/repositories/intelligence">عرض الكل</a></div>
           <div class="command-list">
@@ -652,6 +713,9 @@ export function renderCommandCenter(
       }
       if (action === 'seed-arabic') {
         await requestOperation(state, setMessage, 'seed-arabic', 'arabic', 'تم تسجيل تهيئة المصادر العربية.');
+      }
+      if (action === 'seed-grey') {
+        await requestOperation(state, setMessage, 'seed-grey', 'grey', 'تم تسجيل تهيئة المصادر الرمادية الآمنة.');
       }
       if (action === 'executive-report') {
         try {

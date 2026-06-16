@@ -293,8 +293,8 @@ function renderLogin(): void {
     <main class="login-layout">
       <section class="login-brand" aria-labelledby="brand-title">
         <p class="system-label">منصة الرصد الآمنة</p>
-        <h1 id="brand-title">M3<sup>TM</sup> - RASED</h1>
-        <p>إدارة الأخبار والمصادر والمزامنة من مساحة تشغيل واحدة، بصلاحيات واضحة وتحديثات موثقة.</p>
+        <h1 id="brand-title">M3TM.RASEED</h1>
+        <p>رصد. تحليل. تنبيه. تقرير.</p>
         <ul>
           <li>وصول بالدعوات فقط</li>
           <li>مزامنة RSS وAtom كل 15 دقيقة</li>
@@ -376,14 +376,14 @@ function renderShell(): void {
   if (!profile) return;
   const unreadAlerts = state.alerts.filter((item) => !item.read).length;
   const adminLinks = canManageUsers(profile.role)
-    ? `<div class="nav-section">الإدارة</div>${navButton('sources', 'المصادر')}${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
+    ? `<div class="nav-section">الإدارة</div>${navButton('sources', 'إدارة المصادر')}${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
     : '';
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#/intelligence" aria-label="M3TM RASED">
+        <a class="brand" href="#/intelligence" aria-label="M3TM.RASEED">
           <span class="brand-mark">M3</span>
-          <span><strong>RASED</strong><small>منصة الرصد</small></span>
+          <span><strong>M3TM.RASEED</strong><small>مركز الرصد العربي</small></span>
         </a>
         <nav aria-label="التنقل الرئيسي">
           ${navButton('dashboard', 'لوحة القيادة')}
@@ -409,7 +409,7 @@ function renderShell(): void {
         <header class="topbar">
           <button class="menu-button" id="menu-button" type="button" aria-label="فتح القائمة">☰</button>
           <div>
-            <p class="system-label">M3TM RASED</p>
+            <p class="system-label">M3TM.RASEED</p>
             <h1 id="page-title">لوحة الرصد</h1>
           </div>
           <div class="topbar-actions">
@@ -851,7 +851,7 @@ function renderSettings(view: HTMLElement): void {
     <section class="panel settings-panel">
       <form id="settings-form" class="form-grid">
         <label>اسم المنصة
-          <input name="platformName" value="${escapeStatic(settings?.platformName || 'M3TM RASED')}" maxlength="80" required />
+          <input name="platformName" value="${escapeStatic(settings?.platformName || 'M3TM.RASEED')}" maxlength="80" required />
         </label>
         <label>التصنيف الافتراضي
           <input name="defaultCategory" value="${escapeStatic(settings?.defaultCategory || 'عام')}" maxlength="80" required />
@@ -871,7 +871,7 @@ function renderSettings(view: HTMLElement): void {
     const values = new FormData(formElement);
     try {
       await saveSettings({
-        platformName: String(values.get('platformName') ?? 'M3TM RASED'),
+        platformName: String(values.get('platformName') ?? 'M3TM.RASEED'),
         defaultCategory: String(values.get('defaultCategory') ?? 'عام'),
         feedSyncEnabled: values.get('feedSyncEnabled') === 'on',
         updatedBy: profile.id,

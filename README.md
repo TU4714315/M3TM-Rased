@@ -1,6 +1,6 @@
-# M3TM RASED
+# M3TM.RASEED
 
-منصة عربية لإدارة الأخبار ومصادر RSS/Atom بصلاحيات Firebase واضحة، ومزامنة آلية كل 15 دقيقة.
+مركز الرصد العربي: رصد. تحليل. تنبيه. تقرير.
 
 يتضمن الإصدار الحالي **News & Repository Intelligence Hub** لجمع الأخبار من RSS وGDELT
 وHacker News وGitHub وNewsAPI الاختياري، مع تقييم الصلة، استخراج المؤشرات، ذكاء
@@ -94,6 +94,12 @@ NEWS_API_KEY
 
 يجب أن يحتوي JSON لحساب خدمة يملك الصلاحيات اللازمة لـFirestore وFirebase Hosting.
 
+تهيئة مصادر مركز الرصد:
+
+- من الواجهة: اضغط `تهيئة المصادر العربية` ثم `جلب الأخبار الآن`.
+- للمؤشرات الآمنة: اضغط `تهيئة المصادر الرمادية`. تحفظ المنصة مؤشرات وملخصات فقط، ولا تخزن بيانات مسربة خام أو كلمات مرور.
+- من الطرفية أو GitHub Actions: `npm run sync:intelligence`.
+
 ## النشر
 
 عند الدمج إلى `main`:
@@ -103,7 +109,7 @@ NEWS_API_KEY
 3. يُنشر `dist/` إلى Firebase Hosting.
 4. يُنشر البناء نفسه إلى GitHub Pages كنسخة احتياطية.
 
-Firebase Hosting هو الاستضافة الأساسية لـ`m3tm.app`. يجب إزالة الدومين المخصص من إعدادات GitHub Pages وإضافة نطاقي Firebase وGitHub Pages إلى Firebase Authentication Authorized Domains.
+يدعم المشروع Firebase Hosting وGitHub Pages. يجب أن يطابق هدف النشر الجهة التي يشير إليها `m3tm.app`، وأن يكون النطاق مضافًا إلى Firebase Authentication Authorized Domains.
 
 ## استيراد النسخة القديمة
 
