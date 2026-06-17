@@ -2873,10 +2873,10 @@ td select {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 1px 9px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
   min-height: 72px;
-  padding: 10px;
+  padding: 11px 13px;
 }
 
 .ops-kpi-card::after {
@@ -2893,31 +2893,6 @@ td select {
 
 .ops-kpi-card.success::after {
   background: radial-gradient(circle at 18% 25%, rgba(82, 210, 115, 0.12), transparent 42%);
-}
-
-.ops-kpi-card i {
-  display: grid;
-  grid-row: 1 / span 3;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(77, 156, 255, 0.3);
-  border-radius: 50%;
-  background: rgba(77, 156, 255, 0.12);
-  color: #9ecbff;
-  font-style: normal;
-}
-
-.ops-kpi-card.danger i {
-  border-color: rgba(255, 77, 77, 0.32);
-  background: rgba(255, 77, 77, 0.11);
-  color: #ff9a9a;
-}
-
-.ops-kpi-card.success i {
-  border-color: rgba(82, 210, 115, 0.32);
-  background: rgba(82, 210, 115, 0.1);
-  color: #a8efb7;
 }
 
 .ops-kpi-card strong {
@@ -3035,93 +3010,91 @@ td select {
   overflow: hidden;
   border: 1px solid rgba(103, 169, 255, 0.14);
   border-radius: 11px;
-  background:
-    radial-gradient(circle at 64% 58%, rgba(255, 77, 77, 0.2), transparent 8%),
-    radial-gradient(circle at 46% 45%, rgba(240, 180, 65, 0.18), transparent 9%),
-    radial-gradient(circle at 35% 62%, rgba(82, 210, 115, 0.13), transparent 9%),
-    linear-gradient(135deg, rgba(8, 22, 44, 0.78), rgba(4, 11, 22, 0.92));
+  background: #07111f;
 }
 
-.map-control-stack {
-  position: absolute;
-  inset-block-start: 12px;
-  inset-inline-start: 12px;
-  z-index: 3;
-  display: grid;
-  overflow: hidden;
-  border: 1px solid rgba(103, 169, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(3, 11, 22, 0.72);
-  backdrop-filter: blur(10px);
-}
-
-.map-control-stack span {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-bottom: 1px solid rgba(103, 169, 255, 0.14);
-  color: #dcecff;
-  font-size: 1rem;
-}
-
-.map-control-stack span:last-child {
-  border-bottom: 0;
-}
-
-.regional-map-canvas::before,
 .regional-map-canvas::after {
   content: "";
   position: absolute;
-  inset: 22px 18px 18px;
-  opacity: 0.72;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background:
-    linear-gradient(115deg, transparent 0 16%, rgba(54, 93, 140, 0.36) 17% 18%, transparent 19% 100%),
-    linear-gradient(22deg, transparent 0 22%, rgba(245, 138, 48, 0.28) 23% 24%, transparent 25% 100%),
-    radial-gradient(circle at 58% 58%, rgba(76, 126, 176, 0.42), transparent 0.7%, transparent 3%),
-    radial-gradient(circle at 42% 42%, rgba(76, 126, 176, 0.36), transparent 0.6%, transparent 3%),
-    radial-gradient(circle at 53% 35%, rgba(76, 126, 176, 0.32), transparent 0.6%, transparent 3%);
-  clip-path: polygon(16% 15%, 55% 4%, 76% 18%, 85% 44%, 68% 72%, 43% 88%, 23% 68%, 10% 42%);
+    linear-gradient(180deg, rgba(3, 9, 20, 0.1), rgba(3, 9, 20, 0.42)),
+    radial-gradient(circle at 62% 47%, rgba(255, 132, 64, 0.11), transparent 26%);
 }
 
-.regional-map-canvas::after {
+.real-map-tiles {
+  position: absolute;
   inset: 0;
-  opacity: 0.32;
-  background-image:
-    linear-gradient(rgba(103, 169, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(103, 169, 255, 0.05) 1px, transparent 1px);
-  background-size: 36px 36px;
-  clip-path: none;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  filter: saturate(0.74) contrast(1.16) brightness(0.48);
+  transform: scale(1.04);
+  transform-origin: center;
+}
+
+.real-map-tiles img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.map-attribution {
+  position: absolute;
+  inset-inline-end: 8px;
+  inset-block-end: 6px;
+  z-index: 3;
+  border-radius: 999px;
+  background: rgba(3, 9, 20, 0.62);
+  color: rgba(220, 236, 255, 0.78);
+  padding: 2px 7px;
+  font-size: 0.63rem;
 }
 
 .ops-map-dot {
   --dot-color: var(--ops-green);
   position: absolute;
   z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
+  left: var(--left);
+  top: var(--top);
+  display: inline-grid;
+  grid-template-columns: auto max-content;
+  align-items: center;
+  gap: 5px;
+  min-width: 34px;
+  height: 25px;
+  padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--dot-color) 70%, transparent);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--dot-color) 20%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dot-color) 28%, rgba(3, 9, 20, 0.82));
   box-shadow: 0 0 0 7px color-mix(in srgb, var(--dot-color) 9%, transparent), 0 0 24px color-mix(in srgb, var(--dot-color) 34%, transparent);
+  transform: translate(-50%, -50%);
 }
 
 .ops-map-dot.medium { --dot-color: var(--ops-yellow); }
 .ops-map-dot.high { --dot-color: var(--ops-orange); }
 .ops-map-dot.critical { --dot-color: var(--ops-red); }
-.ops-map-dot.pos-0 { left: 63%; top: 52%; width: 48px; height: 48px; }
-.ops-map-dot.pos-1 { left: 48%; top: 24%; }
-.ops-map-dot.pos-2 { left: 36%; top: 67%; }
-.ops-map-dot.pos-3 { left: 72%; top: 76%; }
-.ops-map-dot.pos-4 { left: 56%; top: 82%; }
-.ops-map-dot.pos-5 { left: 41%; top: 42%; }
 
 .ops-map-dot i {
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: rgba(3, 9, 20, 0.58);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-style: normal;
+}
+
+.ops-map-dot b {
+  color: #fff;
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .map-legend {
@@ -3176,24 +3149,6 @@ td select {
   background-size: 100% 25%, 20% 100%, 100% 100%;
 }
 
-.chart-tool-strip {
-  display: flex;
-  justify-content: flex-start;
-  gap: 6px;
-  margin: -2px 0 8px;
-}
-
-.chart-tool-strip span {
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: 27px;
-  border: 1px solid rgba(103, 169, 255, 0.14);
-  border-radius: 7px;
-  background: rgba(77, 156, 255, 0.06);
-  color: #a9cfff;
-  font-size: 0.78rem;
-}
 
 .threat-chart::before {
   content: "";

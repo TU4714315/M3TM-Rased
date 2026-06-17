@@ -230,6 +230,84 @@ function todayCount(items: IntelligenceNewsItem[]): number {
   return items.filter((item) => itemTimestamp(item.publishedAt) >= start.getTime()).length;
 }
 
+interface NewsMapLocation {
+  key: string;
+  label: string;
+  left: number;
+  top: number;
+  terms: string[];
+}
+
+interface NewsMapPoint extends NewsMapLocation {
+  count: number;
+  score: number;
+}
+
+const newsMapLocations: NewsMapLocation[] = [
+  { key: 'iran', label: 'إيران', left: 54, top: 22, terms: ['إيران', 'طهران', 'الحرس الثوري', 'فيلق القدس'] },
+  { key: 'saudi', label: 'السعودية', left: 40, top: 41, terms: ['السعودية', 'الرياض', 'أرامكو', 'المنطقة الشرقية'] },
+  { key: 'gulf', label: 'الخليج', left: 49, top: 37, terms: ['الخليج', 'أمن الخليج', 'مجلس التعاون', 'مضيق هرمز'] },
+  { key: 'iraq', label: 'العراق', left: 38, top: 19, terms: ['العراق', 'بغداد', 'البصرة', 'الحشد الشعبي'] },
+  { key: 'lebanon', label: 'لبنان', left: 24, top: 17, terms: ['لبنان', 'بيروت', 'حزب الله', 'الجنوب اللبناني'] },
+  { key: 'yemen', label: 'اليمن', left: 44, top: 62, terms: ['اليمن', 'صنعاء', 'الحوثي', 'الحوثيون'] },
+  { key: 'pakistan', label: 'باكستان', left: 83, top: 27, terms: ['باكستان', 'إسلام آباد', 'بلوشستان', 'كشمير'] },
+  { key: 'redsea', label: 'البحر الأحمر', left: 28, top: 51, terms: ['البحر الأحمر', 'باب المندب', 'استهداف السفن'] },
+  { key: 'uae', label: 'الإمارات', left: 57, top: 41, terms: ['الإمارات', 'أبوظبي', 'دبي'] },
+  { key: 'qatar', label: 'قطر', left: 51, top: 38, terms: ['قطر', 'الدوحة'] },
+  { key: 'kuwait', label: 'الكويت', left: 44, top: 29, terms: ['الكويت'] },
+  { key: 'oman', label: 'عمان', left: 61, top: 47, terms: ['عمان', 'مسقط', 'خليج عمان'] },
+  { key: 'syria', label: 'سوريا', left: 28, top: 15, terms: ['سوريا', 'دمشق'] },
+  { key: 'jordan', label: 'الأردن', left: 24, top: 24, terms: ['الأردن', 'عمّان'] },
+  { key: 'egypt', label: 'مصر', left: 13, top: 37, terms: ['مصر', 'القاهرة'] },
+  { key: 'turkey', label: 'تركيا', left: 22, top: 5, terms: ['تركيا', 'أنقرة'] },
+  { key: 'palestine', label: 'إسرائيل وفلسطين', left: 22, top: 23, terms: ['إسرائيل', 'فلسطين', 'غزة', 'الضفة'] },
+];
+
+function newsLocationText(item: IntelligenceNewsItem): string {
+  return [
+    item.country,
+    item.region,
+    item.category,
+    item.subcategory,
+    item.title,
+    item.summary_ar || item.summary,
+    ...stringList(item.tags_ar),
+    ...stringList(item.tags),
+    ...stringList(item.entities?.countries),
+    ...stringList(item.entities?.organizations),
+  ].filter(Boolean).join(' ');
+}
+
+function locationForNewsItem(item: IntelligenceNewsItem): NewsMapLocation {
+  const text = newsLocationText(item);
+  return newsMapLocations.find((location) => location.terms.some((term) => text.includes(term))) ?? newsMapLocations[0]!;
+}
+
+function newsMapPoints(items: IntelligenceNewsItem[]): NewsMapPoint[] {
+  const points = new Map<string, NewsMapPoint>();
+  items.slice(0, 80).forEach((item) => {
+    const location = locationForNewsItem(item);
+    const current = points.get(location.key);
+    if (current) {
+      current.count += 1;
+      current.score = Math.max(current.score, item.score);
+      return;
+    }
+    points.set(location.key, { ...location, count: 1, score: item.score });
+  });
+  return [...points.values()].sort((left, right) => right.score - left.score).slice(0, 9);
+}
+
+function osmTileLayer(): string {
+  const tiles: string[] = [];
+  for (let y = 12; y <= 15; y += 1) {
+    for (let x = 18; x <= 22; x += 1) {
+      tiles.push(`<img src="https://tile.openstreetmap.org/5/${x}/${y}.png" alt="" loading="lazy" />`);
+    }
+  }
+  return `<div class="real-map-tiles" aria-hidden="true">${tiles.join('')}</div><span class="map-attribution">© OpenStreetMap</span>`;
+}
+
 function commandSection(title: string, items: IntelligenceNewsItem[], empty = 'لا توجد عناصر مطابقة حالياً.'): string {
   return `
     <article class="command-panel">
@@ -707,7 +785,7 @@ export function renderCommandCenter(
     || ['اختراق', 'ثغرة', 'CVE', 'برمجيات', 'فدية'].some((term) => `${item.title} ${item.summary_ar || item.summary}`.includes(term)));
   const drivers = riskDrivers(news, state.greyIntel, state.alerts);
   const trendItems = news.slice(0, 6).reverse();
-  const mapItems = news.slice(0, 6);
+  const mapPoints = newsMapPoints(news);
   view.innerHTML = `
     <section class="command-center command-center-v3" data-ui-version="M3TM_UI_VERSION=command-center-v3">
       <section class="ops-headline-row" aria-label="مؤشرات القيادة">
@@ -715,12 +793,12 @@ export function renderCommandCenter(
           <div class="mini-gauge ${scoreClass(risk.score)}" style="--risk-score:${risk.score}"><strong>${risk.score}</strong></div>
           <div><span>مؤشر الخطر العام</span><b>${risk.label}</b></div>
         </article>
-        <article class="ops-kpi-card"><i>▤</i><span>أخبار اليوم</span><strong>${todayCount(news)}</strong><small>خبر نشط</small></article>
-        <article class="ops-kpi-card"><i>◉</i><span>المؤشرات الرمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
-        <article class="ops-kpi-card danger"><i>△</i><span>التنبيهات الحرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
-        <article class="ops-kpi-card success"><i>▣</i><span>المصادر الفعالة</span><strong>${activeSourceCount}</strong><small>${failedSourceCount ? `${failedSourceCount} خطأ` : 'متصلة'}</small></article>
-        <article class="ops-kpi-card danger"><i>◎</i><span>الهجمات والضربات</span><strong>${strikes.length}</strong><small>عنصر مرصود</small></article>
-        <article class="ops-kpi-card success"><i>⌘</i><span>ذكاء المستودعات</span><strong>${state.repositories.length}</strong><small>مستودع</small></article>
+        <article class="ops-kpi-card"><span>أخبار اليوم</span><strong>${todayCount(news)}</strong><small>خبر نشط</small></article>
+        <article class="ops-kpi-card"><span>المؤشرات الرمادية</span><strong>${state.greyIntel.length}</strong><small>مؤشرات فقط</small></article>
+        <article class="ops-kpi-card danger"><span>التنبيهات الحرجة</span><strong>${criticalAlerts}</strong><small>غير مقروءة</small></article>
+        <article class="ops-kpi-card success"><span>المصادر الفعالة</span><strong>${activeSourceCount}</strong><small>${failedSourceCount ? `${failedSourceCount} خطأ` : 'متصلة'}</small></article>
+        <article class="ops-kpi-card danger"><span>الهجمات والضربات</span><strong>${strikes.length}</strong><small>عنصر مرصود</small></article>
+        <article class="ops-kpi-card success"><span>ذكاء المستودعات</span><strong>${state.repositories.length}</strong><small>مستودع</small></article>
       </section>
 
       <section class="ops-command-dock" aria-label="إجراءات تشغيلية">
@@ -760,20 +838,20 @@ export function renderCommandCenter(
           <section class="map-trend-grid">
             <article class="command-panel regional-map-card">
               <div class="command-panel-heading"><h3>خريطة المخاطر المباشرة</h3><span>عام · مباشر</span></div>
-              <div class="regional-map-canvas">
-                <div class="map-control-stack" aria-hidden="true"><span>+</span><span>−</span><span>▦</span></div>
-                ${mapItems.map((item, index) => `
-                  <span class="ops-map-dot ${scoreClass(item.score)} pos-${index}" title="${escapeHtml(item.title)}">
-                    <i>${index + 1}</i>
+              <div class="regional-map-canvas" role="img" aria-label="خريطة جغرافية حقيقية للأخبار حسب الدولة والمنطقة">
+                ${osmTileLayer()}
+                ${mapPoints.map((point) => `
+                  <span class="ops-map-dot ${scoreClass(point.score)}" style="--left:${point.left}%; --top:${point.top}%;" title="${escapeHtml(`${point.label}: ${point.count} خبر`)}">
+                    <i>${point.count}</i>
+                    <b>${escapeHtml(point.label)}</b>
                   </span>
                 `).join('')}
-                ${mapItems.length ? '' : '<p class="map-empty">لا توجد نقاط خطر بعد. اضغط "تهيئة المصادر" ثم "جلب الأخبار الآن".</p>'}
+                ${mapPoints.length ? '' : '<p class="map-empty">لا توجد نقاط خبر على الخريطة بعد. اضغط "تهيئة المصادر" ثم "جلب الأخبار الآن".</p>'}
               </div>
               <div class="map-legend"><span><i class="critical"></i>مرتفع</span><span><i class="medium"></i>متوسط</span><span><i class="low"></i>منخفض</span></div>
             </article>
             <article class="command-panel threat-timeline-card">
               <div class="command-panel-heading"><h3>الخط الزمني للمخاطر</h3><span>آخر العناصر</span></div>
-              <div class="chart-tool-strip" aria-hidden="true"><span>⌄</span><span>◌</span><span>✈</span><span>▣</span><span>⌕</span></div>
               <div class="threat-chart" aria-label="مخطط خطي لمستويات الخطر">
                 ${trendItems.map((item, index) => `<i class="${scoreClass(item.score)}" style="--x:${trendItems.length > 1 ? (index / (trendItems.length - 1)) * 100 : 50}%; --y:${Math.max(5, Math.min(95, item.score))}%"><b>${item.score}</b></i>`).join('')}
               </div>
