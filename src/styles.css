@@ -450,6 +450,10 @@ textarea {
   font-size: 1.35rem;
 }
 
+.topbar > div:not(.topbar-actions) {
+  display: none;
+}
+
 .topbar .system-label {
   margin-bottom: 3px;
   font-size: 0.6rem;
@@ -2760,9 +2764,31 @@ td select {
   --ops-red: #ff4d4d;
   position: relative;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   color: var(--ops-text);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
+}
+
+.workspace[data-route="intelligence"] .topbar,
+.workspace[data-route="news"] .topbar {
+  min-height: 66px;
+  padding-block: 10px;
+  background:
+    linear-gradient(90deg, rgba(2, 7, 16, 0.92), rgba(5, 16, 31, 0.88)),
+    rgba(3, 9, 20, 0.82);
+}
+
+.workspace[data-route="intelligence"] .topbar-actions,
+.workspace[data-route="news"] .topbar-actions {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.workspace[data-route="intelligence"] .topbar-search,
+.workspace[data-route="news"] .topbar-search {
+  order: 4;
+  margin-inline-start: auto;
+  min-width: min(360px, 34vw);
 }
 
 .command-center-v3::before {
@@ -2777,9 +2803,10 @@ td select {
 }
 
 .ops-headline-row {
+  direction: ltr;
   display: grid;
   grid-template-columns: 1.12fr repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .ops-risk-mini,
@@ -2797,11 +2824,12 @@ td select {
 }
 
 .ops-risk-mini {
+  direction: rtl;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 78px;
-  padding: 12px;
+  gap: 10px;
+  min-height: 72px;
+  padding: 10px;
 }
 
 .mini-gauge {
@@ -2841,13 +2869,14 @@ td select {
 }
 
 .ops-kpi-card {
+  direction: rtl;
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
-  gap: 2px 11px;
-  min-height: 78px;
-  padding: 12px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 1px 9px;
+  min-height: 72px;
+  padding: 10px;
 }
 
 .ops-kpi-card::after {
@@ -2899,29 +2928,24 @@ td select {
   line-height: 1.05;
 }
 
-.ops-action-strip {
+.ops-command-dock {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
   border: 1px solid var(--ops-border);
-  border-radius: 13px;
+  border-radius: 11px;
   background:
-    linear-gradient(90deg, rgba(9, 28, 54, 0.88), rgba(7, 17, 34, 0.92)),
+    linear-gradient(90deg, rgba(7, 22, 42, 0.82), rgba(5, 14, 28, 0.86)),
     rgba(5, 14, 28, 0.82);
-  padding: 13px 15px;
+  padding: 8px 10px;
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
 }
 
-.ops-action-strip h2 {
-  margin: 0;
-  font-size: clamp(1.35rem, 2vw, 2rem);
-  letter-spacing: -0.03em;
-}
-
-.ops-action-strip p {
-  margin: 4px 0 0;
-  color: var(--ops-muted);
+.ops-command-dock strong {
+  color: #dcecff;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .command-center-v3 .command-actions {
@@ -2934,7 +2958,8 @@ td select {
 
 .command-center-v3 .button {
   border-radius: 9px;
-  min-height: 38px;
+  min-height: 34px;
+  padding-block: 7px;
 }
 
 .command-center-v3 .button.primary {
@@ -2950,9 +2975,9 @@ td select {
 .ops-dashboard-grid {
   direction: ltr;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
   grid-template-areas: "left main right";
-  gap: 12px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -2961,7 +2986,7 @@ td select {
 .ops-right-rail {
   direction: rtl;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -2970,7 +2995,7 @@ td select {
 .ops-right-rail { grid-area: right; }
 
 .command-center-v3 .command-panel {
-  padding: 13px;
+  padding: 11px;
 }
 
 .command-center-v3 .command-panel-heading {
@@ -2990,9 +3015,14 @@ td select {
 }
 
 .map-trend-grid {
+  direction: ltr;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.92fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.06fr) minmax(330px, 0.94fr);
+  gap: 10px;
+}
+
+.map-trend-grid > * {
+  direction: rtl;
 }
 
 .regional-map-card {
@@ -3001,7 +3031,7 @@ td select {
 
 .regional-map-canvas {
   position: relative;
-  min-height: 340px;
+  min-height: 330px;
   overflow: hidden;
   border: 1px solid rgba(103, 169, 255, 0.14);
   border-radius: 11px;
@@ -3010,6 +3040,33 @@ td select {
     radial-gradient(circle at 46% 45%, rgba(240, 180, 65, 0.18), transparent 9%),
     radial-gradient(circle at 35% 62%, rgba(82, 210, 115, 0.13), transparent 9%),
     linear-gradient(135deg, rgba(8, 22, 44, 0.78), rgba(4, 11, 22, 0.92));
+}
+
+.map-control-stack {
+  position: absolute;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  z-index: 3;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(103, 169, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 11, 22, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.map-control-stack span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-bottom: 1px solid rgba(103, 169, 255, 0.14);
+  color: #dcecff;
+  font-size: 1rem;
+}
+
+.map-control-stack span:last-child {
+  border-bottom: 0;
 }
 
 .regional-map-canvas::before,
@@ -3108,7 +3165,7 @@ td select {
 
 .threat-chart {
   position: relative;
-  min-height: 205px;
+  min-height: 194px;
   overflow: hidden;
   border: 1px solid rgba(103, 169, 255, 0.12);
   border-radius: 11px;
@@ -3117,6 +3174,25 @@ td select {
     linear-gradient(90deg, rgba(103, 169, 255, 0.06) 1px, transparent 1px),
     linear-gradient(180deg, rgba(255, 77, 77, 0.16), rgba(255, 77, 77, 0.02) 58%, rgba(82, 210, 115, 0.04));
   background-size: 100% 25%, 20% 100%, 100% 100%;
+}
+
+.chart-tool-strip {
+  display: flex;
+  justify-content: flex-start;
+  gap: 6px;
+  margin: -2px 0 8px;
+}
+
+.chart-tool-strip span {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(103, 169, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(77, 156, 255, 0.06);
+  color: #a9cfff;
+  font-size: 0.78rem;
 }
 
 .threat-chart::before {
@@ -3378,7 +3454,7 @@ td select {
 .ops-bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .command-center-v3 .watch-chip-list {
@@ -3433,7 +3509,7 @@ td select {
     grid-column: 1 / -1;
   }
 
-  .ops-action-strip {
+  .ops-command-dock {
     display: grid;
   }
 

@@ -723,11 +723,8 @@ export function renderCommandCenter(
         <article class="ops-kpi-card success"><i>⌘</i><span>ذكاء المستودعات</span><strong>${state.repositories.length}</strong><small>مستودع</small></article>
       </section>
 
-      <section class="ops-action-strip" aria-label="إجراءات تشغيلية">
-        <div>
-          <h2>لوحة الرصد الاستخباري</h2>
-          <p>رصد. تحليل. تنبيه. تقرير.</p>
-        </div>
+      <section class="ops-command-dock" aria-label="إجراءات تشغيلية">
+        <strong>لوحة الرصد المباشر</strong>
         <div class="command-actions">
           <button class="button primary" data-command-action="fetch-arabic" ${manager ? '' : 'disabled'}>جلب الأخبار الآن</button>
           <button class="button secondary warm" data-command-action="seed-arabic" ${manager ? '' : 'disabled'}>تهيئة المصادر</button>
@@ -764,6 +761,7 @@ export function renderCommandCenter(
             <article class="command-panel regional-map-card">
               <div class="command-panel-heading"><h3>خريطة المخاطر المباشرة</h3><span>عام · مباشر</span></div>
               <div class="regional-map-canvas">
+                <div class="map-control-stack" aria-hidden="true"><span>+</span><span>−</span><span>▦</span></div>
                 ${mapItems.map((item, index) => `
                   <span class="ops-map-dot ${scoreClass(item.score)} pos-${index}" title="${escapeHtml(item.title)}">
                     <i>${index + 1}</i>
@@ -775,6 +773,7 @@ export function renderCommandCenter(
             </article>
             <article class="command-panel threat-timeline-card">
               <div class="command-panel-heading"><h3>الخط الزمني للمخاطر</h3><span>آخر العناصر</span></div>
+              <div class="chart-tool-strip" aria-hidden="true"><span>⌄</span><span>◌</span><span>✈</span><span>▣</span><span>⌕</span></div>
               <div class="threat-chart" aria-label="مخطط خطي لمستويات الخطر">
                 ${trendItems.map((item, index) => `<i class="${scoreClass(item.score)}" style="--x:${trendItems.length > 1 ? (index / (trendItems.length - 1)) * 100 : 50}%; --y:${Math.max(5, Math.min(95, item.score))}%"><b>${item.score}</b></i>`).join('')}
               </div>

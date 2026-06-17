@@ -405,7 +405,7 @@ function renderShell(): void {
           <button class="button text light" id="logout-button" type="button">تسجيل الخروج</button>
         </div>
       </aside>
-      <div class="workspace">
+      <div class="workspace" data-route="${escapeStatic(state.route)}">
         <header class="topbar">
           <button class="menu-button" id="menu-button" type="button" aria-label="فتح القائمة">☰</button>
           <div>
