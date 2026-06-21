@@ -1,11 +1,9 @@
 import './styles.css';
 import type { Unsubscribe } from 'firebase/firestore';
 import {
-  loginWithEmail,
   loginWithGoogle,
   logout,
   observeSession,
-  registerInvitedUser,
   type Session,
 } from './lib/auth';
 import {
@@ -111,6 +109,7 @@ const state: {
   importPreview: ImportPreview | null;
   error: string;
   loading: boolean;
+  guestMode: boolean;
   unsubscribers: Unsubscribe[];
 } = {
   session: { user: null, profile: null, blockedReason: null },
@@ -134,6 +133,7 @@ const state: {
   importPreview: null,
   error: '',
   loading: true,
+  guestMode: false,
   unsubscribers: [],
 };
 
@@ -197,6 +197,7 @@ function clearSubscriptions(): void {
 
 function subscribeToData(): void {
   clearSubscriptions();
+  if (state.guestMode) return;
   if (!state.session.profile) return;
   const onError = (error: Error) => {
     state.error = friendlyError(error);
@@ -278,6 +279,27 @@ function subscribeToData(): void {
   }
 }
 
+function enterGuestMode(): void {
+  clearSubscriptions();
+  state.guestMode = true;
+  state.session = {
+    user: null,
+    profile: {
+      id: 'guest-reader',
+      email: 'guest@m3tm.app',
+      displayName: 'زائر للقراءة',
+      role: 'user',
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    blockedReason: null,
+  };
+  state.route = 'dashboard';
+  history.replaceState(null, '', '#/dashboard');
+  render();
+}
+
 function renderLoading(): void {
   app.innerHTML = `
     <main class="center-screen">
@@ -291,31 +313,27 @@ function renderLogin(): void {
   const blocked = state.session.blockedReason;
   app.innerHTML = `
     <main class="login-layout">
+      <div class="login-map-bg" aria-hidden="true">
+        <img src="/lovable-world-map.svg" alt="" />
+      </div>
+      <div class="login-gradient login-gradient-side" aria-hidden="true"></div>
+      <div class="login-gradient login-gradient-bottom" aria-hidden="true"></div>
       <section class="login-brand" aria-labelledby="brand-title">
-        <p class="system-label">منصة الرصد الآمنة</p>
-        <h1 id="brand-title">M3TM.RASEED</h1>
-        <p>رصد. تحليل. تنبيه. تقرير.</p>
-        <ul>
-          <li>وصول بالدعوات فقط</li>
-          <li>مزامنة RSS وAtom كل 15 دقيقة</li>
-          <li>أدوار Admin وManager وUser</li>
-        </ul>
+        <p class="login-command-label">مركز قيادة استخباري <span aria-hidden="true">♢</span></p>
+        <h1 id="brand-title"><span>M3TM</span>.RASEED</h1>
+        <h2>مركز الرصد العربي</h2>
+        <p class="login-tagline">رصد. تحليل. تنبيه. تقرير.</p>
+        <p class="login-description">منصة رصد وتحليل استخباري عربي لمتابعة الأخبار والمؤشرات والمخاطر والتنبيهات في الوقت الحقيقي عبر مناطق العالم.</p>
       </section>
       <section class="login-card" aria-labelledby="login-title">
         <div>
-          <p class="eyebrow">دخول موثوق</p>
-          <h2 id="login-title">مرحبًا بعودتك</h2>
-          <p class="muted">استخدم حساب Google أو البريد المدعو إلى المنصة.</p>
+          <h2 id="login-title">الدخول إلى المنصة</h2>
+          <p class="muted">سجّل الدخول للوصول إلى لوحة الرصد الاستخباري.</p>
         </div>
         ${blocked ? `<div class="notice error">${escapeStatic(blocked)}</div>` : ''}
-        <button class="button google" id="google-login" type="button">المتابعة عبر Google</button>
-        <div class="divider"><span>أو بالبريد</span></div>
-        <form id="email-login-form" class="form-stack">
-          <label>البريد الإلكتروني<input id="login-email" type="email" autocomplete="email" required /></label>
-          <label>كلمة المرور<input id="login-password" type="password" autocomplete="current-password" minlength="6" required /></label>
-          <button class="button primary" type="submit">تسجيل الدخول</button>
-        </form>
-        <button class="button text" id="register-invited" type="button">إنشاء حساب لبريد مدعو</button>
+        <button class="button google" id="google-login" type="button"><span>الدخول بحساب Google</span><b aria-hidden="true">G</b></button>
+        <button class="button guest" id="guest-login" type="button"><span aria-hidden="true">‹</span><span>الدخول كزائر للقراءة فقط</span><b aria-hidden="true">◉</b></button>
+        <p class="login-footnote">دخول الزائر للقراءة فقط، وتتم ترقية الصلاحيات من المالك.</p>
         <div id="login-message" class="notice" hidden></div>
       </section>
     </main>
@@ -337,33 +355,7 @@ function renderLogin(): void {
       showLoginMessage(friendlyError(error), 'error');
     }
   });
-
-  document.querySelector<HTMLFormElement>('#email-login-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const email = document.querySelector<HTMLInputElement>('#login-email')?.value ?? '';
-    const password = document.querySelector<HTMLInputElement>('#login-password')?.value ?? '';
-    try {
-      showLoginMessage('جارٍ تسجيل الدخول...');
-      await loginWithEmail(email, password);
-    } catch (error) {
-      showLoginMessage(friendlyError(error), 'error');
-    }
-  });
-
-  document.querySelector('#register-invited')?.addEventListener('click', async () => {
-    const email = document.querySelector<HTMLInputElement>('#login-email')?.value ?? '';
-    const password = document.querySelector<HTMLInputElement>('#login-password')?.value ?? '';
-    if (!email || password.length < 6) {
-      showLoginMessage('أدخل البريد المدعو وكلمة مرور من 6 أحرف على الأقل.', 'error');
-      return;
-    }
-    try {
-      showLoginMessage('جارٍ إنشاء الحساب والتحقق من الدعوة...');
-      await registerInvitedUser(email, password);
-    } catch (error) {
-      showLoginMessage(friendlyError(error), 'error');
-    }
-  });
+  document.querySelector('#guest-login')?.addEventListener('click', enterGuestMode);
 }
 
 function navButton(route: Route, label: string): string {
@@ -375,42 +367,48 @@ function renderShell(): void {
   const profile = state.session.profile;
   if (!profile) return;
   const unreadAlerts = state.alerts.filter((item) => !item.read).length;
+  const guestLinks = state.guestMode
+    ? `${navButton('dashboard', 'لوحة القيادة')}${navButton('news', 'الأخبار العربية')}${navButton('grey-intel', 'المصادر الرمادية')}${navButton('repositories/intelligence', 'ذكاء المستودعات')}`
+    : '';
   const adminLinks = canManageUsers(profile.role)
     ? `<div class="nav-section">الإدارة</div>${navButton('sources', 'إدارة المصادر')}${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
     : '';
   app.innerHTML = `
-    <div class="app-shell">
+    <div class="app-shell ${state.guestMode ? 'lovable-locked-shell' : ''}">
       <aside class="sidebar">
         <a class="brand" href="#/intelligence" aria-label="M3TM.RASEED">
           <span class="brand-mark">M3</span>
           <span><strong>M3TM.RASEED</strong><small>مركز الرصد العربي</small></span>
         </a>
         <nav aria-label="التنقل الرئيسي">
-          ${navButton('dashboard', 'لوحة القيادة')}
-          ${navButton('news', 'الأخبار العربية')}
-          ${navButton('grey-intel', 'المصادر الرمادية')}
-          <a class="nav-link topic-link" href="#/news" data-route="topic-gulf">الخليج وإيران</a>
-          <a class="nav-link topic-link" href="#/news" data-route="topic-espionage">التجسس والاستخبارات</a>
-          <a class="nav-link topic-link" href="#/news" data-route="topic-strikes">الضربات والهجمات</a>
-          ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
-          ${navButton('watchlists', 'قوائم المراقبة')}
-          ${navButton('alerts', `التنبيهات${unreadAlerts ? ` ${unreadAlerts}` : ''}`)}
-          ${navButton('reports', 'التقارير التنفيذية')}
-          ${adminLinks}
+          ${guestLinks || `
+            ${navButton('dashboard', 'لوحة القيادة')}
+            ${navButton('news', 'الأخبار العربية')}
+            ${navButton('grey-intel', 'المصادر الرمادية')}
+            <a class="nav-link topic-link" href="#/news" data-route="topic-gulf">الخليج وإيران</a>
+            <a class="nav-link topic-link" href="#/news" data-route="topic-espionage">التجسس والاستخبارات</a>
+            <a class="nav-link topic-link" href="#/news" data-route="topic-strikes">الضربات والهجمات</a>
+            ${navButton('repositories/intelligence', 'ذكاء المستودعات')}
+            ${navButton('watchlists', 'قوائم المراقبة')}
+            ${navButton('alerts', `التنبيهات${unreadAlerts ? ` ${unreadAlerts}` : ''}`)}
+            ${navButton('reports', 'التقارير التنفيذية')}
+            ${adminLinks}
+          `}
         </nav>
         <div class="sidebar-footer">
-          <span class="role-badge">${escapeStatic(profile.role.toUpperCase())}</span>
+          <span class="role-badge">${state.guestMode ? 'READ ONLY' : escapeStatic(profile.role.toUpperCase())}</span>
           <strong>${escapeStatic(profile.displayName)}</strong>
           <small>${escapeStatic(profile.email)}</small>
-          <button class="button text light" id="logout-button" type="button">تسجيل الخروج</button>
+          <button class="button text light" id="logout-button" type="button">${state.guestMode ? 'الخروج من وضع الزائر' : 'تسجيل الخروج'}</button>
         </div>
       </aside>
       <div class="workspace" data-route="${escapeStatic(state.route)}">
         <header class="topbar">
+          ${state.guestMode ? '<button class="guest-role-switch" type="button">زائر (قراءة فقط)⌄</button>' : ''}
           <button class="menu-button" id="menu-button" type="button" aria-label="فتح القائمة">☰</button>
           <div>
-            <p class="system-label">M3TM.RASEED</p>
-            <h1 id="page-title">لوحة الرصد</h1>
+            <p class="system-label">${state.guestMode ? 'رصد استخباري في الوقت الحقيقي للأحداث والمخاطر العالمية' : 'M3TM.RASEED'}</p>
+            <h1 id="page-title">${state.guestMode ? 'لوحة الرصد الاستخباري' : 'لوحة الرصد'}</h1>
           </div>
           <div class="topbar-actions">
             <label class="topbar-search">
@@ -429,7 +427,16 @@ function renderShell(): void {
       </div>
     </div>
   `;
-  document.querySelector('#logout-button')?.addEventListener('click', () => void logout());
+  document.querySelector('#logout-button')?.addEventListener('click', () => {
+    if (state.guestMode) {
+      state.guestMode = false;
+      state.session = { user: null, profile: null, blockedReason: null };
+      history.replaceState(null, '', location.pathname);
+      render();
+      return;
+    }
+    void logout();
+  });
   document.querySelector('#export-button')?.addEventListener('click', exportData);
   document.querySelector('#menu-button')?.addEventListener('click', () => {
     document.querySelector('.sidebar')?.classList.toggle('open');
@@ -458,7 +465,63 @@ function make(tag: string, className = '', text = ''): HTMLElement {
 function renderDashboard(view: HTMLElement): void {
   const profile = state.session.profile;
   if (!profile) return;
+  if (state.guestMode) {
+    renderGuestDashboard(view);
+    return;
+  }
   renderCommandCenter(view, intelligenceUiState(profile), setMessage);
+}
+
+function renderGuestDashboard(view: HTMLElement): void {
+  const events = [
+    ['إعلامي', 'تحركات بحرية مكثفة قرب مضيق هرمز', 'مصادر إعلامية إقليمية تتداول نشاطًا بحريًا متزايدًا.', 'وكالة الرصد الإقليمي', 'إيران', 'قبل ٣ دقيقة'],
+    ['مرتفع', 'هجوم سيبراني على بنية تحتية مالية', 'محاولة اختراق منسقة تستهدف أنظمة دفع إقليمية.', 'مركز الأمن السيبراني', 'الإمارات', 'قبل ٤ دقيقة'],
+    ['مرتفع', 'إشارة أمنية في مستودع برمجي مفتوح', 'اكتشاف اعتمادية شائعة منخفضة التحديث ضمن مشروع مفتوح.', 'محرك ذكاء المستودعات', 'الولايات المتحدة', 'قبل ساعة'],
+    ['متوسط', 'نشاط دبلوماسي حول ملف إقليمي', 'مباحثات مكثفة بين عواصم إقليمية بشأن أمن الطاقة.', 'مصدر سياسي', 'الخليج', 'قبل ساعتين'],
+  ];
+  view.innerHTML = `
+    <section class="lovable-dashboard" aria-label="لوحة الرصد الاستخباري">
+      <header class="lovable-dashboard-title">
+        <h2>لوحة الرصد الاستخباري</h2>
+        <p>رصد. تحليل. تنبيه. تقرير.</p>
+      </header>
+      <section class="lovable-kpis" aria-label="مؤشرات الرصد">
+        <article><span>أحداث نشطة</span><strong>٨</strong><i>⌁</i></article>
+        <article class="critical"><span>مخاطر حرجة</span><strong>١</strong><i>◎</i></article>
+        <article class="high"><span>مخاطر مرتفعة</span><strong>٣</strong><i>△</i></article>
+        <article class="success"><span>مصادر فعالة</span><strong>٥</strong><i>◉</i></article>
+        <article class="repo"><span>ذكاء المستودعات</span><strong>٣</strong><i>⌘</i></article>
+      </section>
+      <section class="lovable-dashboard-grid">
+        <aside class="lovable-investigation-panel">
+          <h3>تحقيق الأحداث</h3>
+          <div class="lovable-event-list">
+            ${events.map(([risk, title, summary, source, region, time]) => `
+              <article class="lovable-event-card">
+                <div><time>◷ ${time}</time><span class="${risk === 'مرتفع' ? 'high' : risk === 'متوسط' ? 'medium' : 'media'}">${risk}</span></div>
+                <h4>${title}</h4>
+                <p>${summary}</p>
+                <footer><small>${source}</small><small>⌖ ${region}</small><a href="#/dashboard">عرض التفاصيل ‹</a></footer>
+              </article>
+            `).join('')}
+          </div>
+        </aside>
+        <article class="lovable-map-panel">
+          <div class="lovable-panel-heading">
+            <span>◎</span>
+            <div><h3>خريطة الأحداث العالمية</h3><p>رصد حي للمؤشرات والأحداث حسب المنطقة والخطورة</p></div>
+          </div>
+          <nav class="lovable-risk-tabs" aria-label="تصفية الخريطة">
+            <span class="active">خريطة</span><span>كرة أرضية</span><span>الكل</span><span>حرج</span><span>مرتفع</span><span>متوسط</span><span>منخفض</span><span>إعلامي</span>
+          </nav>
+          <div class="lovable-map-stage" role="img" aria-label="خريطة الأحداث العالمية">
+            <div class="lovable-spinner" aria-hidden="true"></div>
+            <p>جاري تحميل الخريطة...</p>
+          </div>
+        </article>
+      </section>
+    </section>
+  `;
 }
 
 function renderNews(view: HTMLElement): void {
@@ -888,6 +951,10 @@ function renderCurrentView(): void {
   const title = document.querySelector<HTMLElement>('#page-title');
   if (!view || !title || !state.session.profile) return;
   state.route = routeFromHash();
+  if (state.guestMode && !['dashboard', 'news', 'grey-intel', 'repositories/intelligence'].includes(state.route)) {
+    state.route = 'dashboard';
+    history.replaceState(null, '', '#/dashboard');
+  }
   document.querySelectorAll('.nav-link').forEach((link) => {
     link.classList.toggle('active', link.getAttribute('data-route') === state.route);
   });
@@ -907,7 +974,7 @@ function renderCurrentView(): void {
     import: 'الاستيراد',
     settings: 'الإعدادات',
   };
-  title.textContent = titles[state.route];
+  title.textContent = state.guestMode && state.route === 'dashboard' ? 'لوحة الرصد الاستخباري' : titles[state.route];
   if (state.error) {
     setMessage(state.error, 'error');
     state.error = '';
@@ -934,7 +1001,7 @@ function render(): void {
     renderLoading();
     return;
   }
-  if (!state.session.user || !state.session.profile) {
+  if ((!state.session.user && !state.guestMode) || !state.session.profile) {
     renderLogin();
     return;
   }
@@ -949,6 +1016,8 @@ window.addEventListener('hashchange', () => {
 });
 
 observeSession((session) => {
+  if (state.guestMode && !session.user) return;
+  if (session.user) state.guestMode = false;
   const identityChanged = state.session.user?.uid !== session.user?.uid;
   state.session = session;
   state.loading = false;
