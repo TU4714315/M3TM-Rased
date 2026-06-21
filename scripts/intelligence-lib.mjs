@@ -184,7 +184,7 @@ export function scoreIntelligenceItem(item, options = {}) {
   const ageHours = Math.max(0, (now.getTime() - published.getTime()) / 3_600_000);
   const text = `${item.title ?? ''} ${item.summary ?? ''} ${item.contentSnippet ?? ''}`.toLowerCase();
   const relevance = DEFAULT_KEYWORDS.reduce((total, keyword) => total + (text.includes(keyword) ? 1 : 0), 0);
-  const security = ['cve-', 'zero-day', 'ransomware', 'breach', 'exploit', 'vulnerability']
+  const security = ['critical', 'cve-', 'zero-day', 'ransomware', 'breach', 'exploit', 'vulnerability']
     .reduce((total, keyword) => total + (text.includes(keyword) ? 1 : 0), 0);
   const strategic = ['osint', 'ai agent', 'llm', 'threat intelligence', 'cloud run', 'firestore']
     .reduce((total, keyword) => total + (text.includes(keyword) ? 1 : 0), 0);
