@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="864" viewBox="0 0 1536 864" role="img" aria-label="M3TM.RASEED command center UI reference">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#020814"/><stop offset="1" stop-color="#071527"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#081a31" stop-opacity=".92"/><stop offset="1" stop-color="#061120" stop-opacity=".96"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d65c8"/><stop offset="1" stop-color="#0b3d7f"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <style>
+      .bg{fill:url(#bg)}.panel{fill:url(#card);stroke:#1b365a;stroke-width:1}.soft{fill:#0a172a;stroke:#183252}.title{font:700 26px Arial, sans-serif;fill:#e8f1ff}.label{font:600 15px Arial, sans-serif;fill:#d7e6fb}.muted{font:13px Arial, sans-serif;fill:#88a0ba}.num{font:700 30px Arial, sans-serif;fill:#eaf3ff}.gold{fill:#f3b64d}.blue{fill:#67a8ff}.red{fill:#ff5656}.orange{fill:#f59e0b}.green{fill:#39c979}.line{stroke:#1d3a61;stroke-width:1}.chip{fill:#0c2342;stroke:#214b7f}.rtl{direction:rtl;unicode-bidi:bidi-override}.tiny{font:12px Arial, sans-serif;fill:#9fb4cc}
+    </style>
+  </defs>
+  <rect class="bg" width="1536" height="864"/>
+  <rect x="1278" y="0" width="258" height="864" fill="#031021" stroke="#1d3658"/>
+  <text x="1454" y="30" class="title" text-anchor="end">M3TM.RASEED</text>
+  <text x="1454" y="54" class="label" text-anchor="end">مركز الرصد العربي</text>
+  <polygon points="1489,18 1510,30 1510,55 1489,68 1468,55 1468,30" fill="none" stroke="#d9a441" stroke-width="3"/>
+  <rect x="1303" y="88" width="208" height="48" rx="8" fill="url(#blue)"/>
+  <text x="1436" y="119" class="label rtl" text-anchor="end">لوحة القيادة</text>
+  <g class="rtl" text-anchor="end">
+    <text x="1436" y="174" class="label">الإنذار المبكر</text><text x="1436" y="220" class="label">الأخبار العربية</text><text x="1436" y="266" class="label">المصادر الرمادية</text><text x="1436" y="312" class="label">الخليج وإيران</text><text x="1436" y="358" class="label">التجسس والاستخبارات</text><text x="1436" y="404" class="label">الضربات والهجمات</text><text x="1436" y="450" class="label">ذكاء المستودعات</text><text x="1436" y="496" class="label">قوائم المراقبة</text><text x="1436" y="542" class="label">التهديدات</text><text x="1436" y="588" class="label">التقارير التنفيذية</text><text x="1436" y="634" class="label">الإعدادات</text>
+  </g>
+  <rect x="1304" y="662" width="214" height="152" rx="10" class="panel"/>
+  <text x="1458" y="692" class="label rtl" text-anchor="end">حالة النظام</text>
+  <text x="1340" y="726" class="green">متصل</text><text x="1454" y="726" class="muted rtl" text-anchor="end">مصادر الأخبار</text>
+  <text x="1340" y="758" class="green">متصل</text><text x="1454" y="758" class="muted rtl" text-anchor="end">المصادر الرمادية</text>
+  <text x="1340" y="790" class="green">متصل</text><text x="1454" y="790" class="muted rtl" text-anchor="end">قاعدة البيانات</text>
+  <text x="1325" y="838" class="label">09:42:15</text><text x="1450" y="838" class="muted rtl" text-anchor="end">16 يونيو 2026</text>
+
+  <rect x="0" y="0" width="1278" height="60" fill="#030d1b" stroke="#1a314f"/>
+  <rect x="354" y="16" width="300" height="34" rx="5" fill="#071a30" stroke="#264261"/>
+  <text x="636" y="38" class="muted rtl" text-anchor="end">ابحث في الأخبار والمصادر والمستودعات...</text>
+  <text x="112" y="22" class="label rtl" text-anchor="end">المشرف العام</text><text x="112" y="42" class="muted">Admin</text>
+  <circle cx="142" cy="28" r="18" fill="#0c2241" stroke="#28415f"/><text x="142" y="34" class="label" text-anchor="middle">M3</text>
+  <circle cx="210" cy="24" r="10" fill="#e53e3e"/><text x="210" y="28" class="tiny" text-anchor="middle" fill="#fff">12</text>
+  <text x="318" y="35" class="muted rtl" text-anchor="end">آخر تحديث منذ 2 دقيقة</text><circle cx="337" cy="30" r="5" fill="#39c979"/>
+
+  <g transform="translate(10 70)">
+    <rect width="218" height="72" rx="8" class="panel"/><path d="M25 54 A46 46 0 0 1 103 18" fill="none" stroke="#36b6ff" stroke-width="7"/><path d="M103 18 A46 46 0 0 1 190 54" fill="none" stroke="#ff4d4d" stroke-width="7"/><text x="112" y="38" class="num" text-anchor="middle">68</text><text x="112" y="58" class="gold" text-anchor="middle">مرتفع</text><text x="196" y="28" class="label rtl" text-anchor="end">مؤشر الخطر العام</text>
+  </g>
+  <g transform="translate(238 70)">
+    <rect width="156" height="72" rx="8" class="panel"/><text x="130" y="25" class="label rtl" text-anchor="end">الأخبار اليوم</text><text x="130" y="55" class="num" text-anchor="end">342</text><text x="34" y="55" class="green">+18%</text>
+  </g>
+  <g transform="translate(404 70)">
+    <rect width="156" height="72" rx="8" class="panel"/><text x="130" y="25" class="label rtl" text-anchor="end">المؤشرات الرمادية</text><text x="130" y="55" class="num" text-anchor="end">128</text><text x="34" y="55" class="green">+27%</text>
+  </g>
+  <g transform="translate(570 70)">
+    <rect width="156" height="72" rx="8" class="panel"/><text x="130" y="25" class="label rtl" text-anchor="end">التهديدات الحرجة</text><text x="130" y="55" class="num" text-anchor="end">12</text><text x="34" y="55" class="green">+2</text>
+  </g>
+  <g transform="translate(736 70)">
+    <rect width="156" height="72" rx="8" class="panel"/><text x="130" y="25" class="label rtl" text-anchor="end">المصادر الفعالة</text><text x="130" y="55" class="num" text-anchor="end">87</text><text x="34" y="55" class="green">+5</text>
+  </g>
+  <g transform="translate(902 70)">
+    <rect width="156" height="72" rx="8" class="panel"/><text x="130" y="25" class="label rtl" text-anchor="end">الهجمات والضربات</text><text x="130" y="55" class="num" text-anchor="end">8</text><text x="34" y="55" class="green">+1</text>
+  </g>
+  <g transform="translate(1068 70)">
+    <rect width="210" height="72" rx="8" class="panel"/><text x="178" y="25" class="label rtl" text-anchor="end">ذكاء المستودعات</text><text x="178" y="55" class="num" text-anchor="end">19</text><text x="54" y="55" class="green">+3</text>
+  </g>
+
+  <rect x="14" y="154" width="300" height="210" rx="8" class="panel"/>
+  <text x="278" y="188" class="title rtl" text-anchor="end" font-size="22">لماذا ارتفع الخطر؟</text>
+  <g class="rtl" text-anchor="end">
+    <text x="278" y="225" class="muted">تصاعد نشاط عسكري في مضيق هرمز خلال 48 ساعة</text><circle cx="288" cy="220" r="4" fill="#e33"/>
+    <text x="278" y="260" class="muted">تحركات بحرية وجوية غير اعتيادية في الخليج</text><circle cx="288" cy="255" r="4" fill="#f59e0b"/>
+    <text x="278" y="295" class="muted">ارتفاع الخطاب التصعيدي في المصادر الإيرانية</text><circle cx="288" cy="290" r="4" fill="#f59e0b"/>
+    <text x="278" y="330" class="muted">تزايد الهجمات السيبرانية على جهات حكومية</text><circle cx="288" cy="325" r="4" fill="#e33"/>
+  </g>
+
+  <rect x="326" y="154" width="435" height="210" rx="8" class="panel"/>
+  <text x="548" y="181" class="label rtl" text-anchor="middle">خريطة المخاطر المباشرة</text>
+  <path d="M360 310 C460 240 530 205 640 230 C710 245 730 280 748 310" fill="none" stroke="#2f5789" stroke-width="3" opacity=".55"/>
+  <circle cx="510" cy="220" r="20" fill="#315f2f" opacity=".8" filter="url(#glow)"/><circle cx="600" cy="268" r="14" fill="#a62b2b" opacity=".9" filter="url(#glow)"/><circle cx="705" cy="305" r="22" fill="#8d1d1d" opacity=".85" filter="url(#glow)"/><circle cx="440" cy="294" r="10" fill="#224e2c" opacity=".9" filter="url(#glow)"/>
+  <rect x="340" y="190" width="32" height="112" rx="6" fill="#07172b" stroke="#24466c"/><text x="356" y="216" class="label" text-anchor="middle">+</text><text x="356" y="252" class="label" text-anchor="middle">−</text><text x="356" y="288" class="label" text-anchor="middle">▦</text>
+
+  <rect x="774" y="154" width="490" height="210" rx="8" class="panel"/>
+  <text x="1215" y="181" class="label rtl" text-anchor="end">الخط الزمني للمخاطر (آخر 7 أيام)</text>
+  <polyline points="806,305 870,280 940,245 1010,235 1080,246 1160,282 1230,272" fill="none" stroke="#e34242" stroke-width="3"/>
+  <polyline points="806,330 930,324 1040,319 1135,310 1230,292" fill="none" stroke="#f59e0b" stroke-width="3"/>
+  <line x1="806" y1="330" x2="1230" y2="330" stroke="#285178"/><line x1="806" y1="250" x2="1230" y2="250" stroke="#183252"/>
+  <text x="1194" y="235" class="red">68</text>
+
+  <rect x="14" y="374" width="300" height="160" rx="8" class="panel"/>
+  <text x="278" y="405" class="label rtl" text-anchor="end">الخليج وإيران</text>
+  <text x="278" y="440" class="muted rtl" text-anchor="end">توتر في مضيق هرمز</text><rect x="34" y="426" width="44" height="20" rx="4" fill="#522126"/><text x="56" y="441" class="tiny red" text-anchor="middle">مرتفع</text>
+  <text x="278" y="474" class="muted rtl" text-anchor="end">تحركات بحرية إيرانية</text><rect x="34" y="460" width="44" height="20" rx="4" fill="#522126"/><text x="56" y="475" class="tiny red" text-anchor="middle">مرتفع</text>
+  <text x="278" y="508" class="muted rtl" text-anchor="end">تصريحات رسمية من طهران</text><rect x="34" y="494" width="44" height="20" rx="4" fill="#5c3c12"/><text x="56" y="509" class="tiny orange" text-anchor="middle">متوسط</text>
+
+  <rect x="326" y="374" width="610" height="258" rx="8" class="panel"/>
+  <text x="880" y="405" class="label rtl" text-anchor="end">آخر الأحداث</text>
+  <g class="rtl" text-anchor="end">
+    <text x="878" y="448" class="label">تحركات مكثفة لسفن حربية أمريكية في بحر عمان باتجاه مضيق هرمز</text><text x="878" y="494" class="label">هجوم سيبراني يستهدف بنية تحتية حكومية في الإمارات</text><text x="878" y="540" class="label">تصريحات من الحرس الثوري حول الرد على أي تهديد</text><text x="878" y="586" class="label">أنظمة دفاع جوي تتعامل مع جسم مجهول في سماء بغداد</text>
+  </g>
+  <g><rect x="362" y="430" width="50" height="22" rx="4" fill="#522126"/><text x="386" y="446" class="tiny red" text-anchor="middle">مرتفع</text><rect x="362" y="476" width="50" height="22" rx="4" fill="#522126"/><text x="386" y="492" class="tiny red" text-anchor="middle">مرتفع</text><rect x="362" y="522" width="50" height="22" rx="4" fill="#5c3c12"/><text x="386" y="538" class="tiny orange" text-anchor="middle">متوسط</text><rect x="362" y="568" width="50" height="22" rx="4" fill="#5c3c12"/><text x="386" y="584" class="tiny orange" text-anchor="middle">متوسط</text></g>
+  <line x1="344" y1="462" x2="918" y2="462" class="line"/><line x1="344" y1="508" x2="918" y2="508" class="line"/><line x1="344" y1="554" x2="918" y2="554" class="line"/>
+
+  <rect x="950" y="374" width="314" height="146" rx="8" class="panel"/>
+  <text x="1216" y="405" class="label rtl" text-anchor="end">المصادر الرمادية</text>
+  <text x="1216" y="438" class="muted rtl" text-anchor="end">تحركات لوجستية غير اعتيادية في محافظة...</text><circle cx="1235" cy="434" r="4" fill="#e33"/>
+  <text x="1216" y="472" class="muted rtl" text-anchor="end">رصد انطلاق طائرة شحن من مطار مشهد...</text><circle cx="1235" cy="468" r="4" fill="#f59e0b"/>
+  <text x="1216" y="506" class="muted rtl" text-anchor="end">تحليل: السيناريوهات المتوقعة في حال...</text><circle cx="1235" cy="502" r="4" fill="#f59e0b"/>
+
+  <rect x="950" y="536" width="314" height="96" rx="8" class="panel"/>
+  <text x="1216" y="566" class="label rtl" text-anchor="end">ذكاء المستودعات</text>
+  <rect x="970" y="584" width="60" height="32" rx="5" class="chip"/><text x="1000" y="605" class="label" text-anchor="middle">34</text><rect x="1040" y="584" width="60" height="32" rx="5" class="chip"/><text x="1070" y="605" class="label" text-anchor="middle">19</text><rect x="1110" y="584" width="60" height="32" rx="5" class="chip"/><text x="1140" y="605" class="label" text-anchor="middle">11</text><rect x="1180" y="584" width="60" height="32" rx="5" class="chip"/><text x="1210" y="605" class="label" text-anchor="middle">26</text>
+
+  <rect x="14" y="548" width="300" height="190" rx="8" class="panel"/>
+  <text x="278" y="580" class="label rtl" text-anchor="end">الضربات والهجمات</text><text x="278" y="708" class="muted rtl" text-anchor="end">أبرز الهجمات اليوم</text>
+  <rect x="326" y="648" width="610" height="72" rx="8" class="panel"/><text x="876" y="692" class="label rtl" text-anchor="end">عرض جميع الأحداث</text>
+  <rect x="950" y="648" width="314" height="72" rx="8" class="panel"/><text x="1218" y="688" class="label rtl" text-anchor="end">حالات النظام والمزامنة</text>
+</svg>
