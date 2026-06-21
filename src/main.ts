@@ -367,14 +367,16 @@ function renderShell(): void {
   const profile = state.session.profile;
   if (!profile) return;
   const unreadAlerts = state.alerts.filter((item) => !item.read).length;
-  const guestLinks = state.guestMode
+  const readOnlyNavigation = state.guestMode || profile.role === 'user';
+  const roleSelectorLabel = readOnlyNavigation ? 'زائر (قراءة فقط)' : profile.role.toUpperCase();
+  const guestLinks = readOnlyNavigation
     ? `${navButton('dashboard', 'لوحة القيادة')}${navButton('news', 'الأخبار العربية')}${navButton('grey-intel', 'المصادر الرمادية')}${navButton('repositories/intelligence', 'ذكاء المستودعات')}`
     : '';
   const adminLinks = canManageUsers(profile.role)
     ? `<div class="nav-section">الإدارة</div>${navButton('sources', 'إدارة المصادر')}${navButton('users', 'المستخدمون')}${navButton('import', 'الاستيراد')}${navButton('settings', 'الإعدادات')}`
     : '';
   app.innerHTML = `
-    <div class="app-shell ${state.guestMode ? 'lovable-locked-shell' : ''}">
+    <div class="app-shell lovable-locked-shell">
       <aside class="sidebar">
         <a class="brand" href="#/intelligence" aria-label="M3TM.RASEED">
           <span class="brand-mark">M3</span>
@@ -396,7 +398,7 @@ function renderShell(): void {
           `}
         </nav>
         <div class="sidebar-footer">
-          <span class="role-badge">${state.guestMode ? 'READ ONLY' : escapeStatic(profile.role.toUpperCase())}</span>
+          <span class="role-badge">${readOnlyNavigation ? 'READ ONLY' : escapeStatic(profile.role.toUpperCase())}</span>
           <strong>${escapeStatic(profile.displayName)}</strong>
           <small>${escapeStatic(profile.email)}</small>
           <button class="button text light" id="logout-button" type="button">${state.guestMode ? 'الخروج من وضع الزائر' : 'تسجيل الخروج'}</button>
@@ -404,11 +406,11 @@ function renderShell(): void {
       </aside>
       <div class="workspace" data-route="${escapeStatic(state.route)}">
         <header class="topbar">
-          ${state.guestMode ? '<button class="guest-role-switch" type="button">زائر (قراءة فقط)⌄</button>' : ''}
+          <button class="guest-role-switch" type="button">${escapeStatic(roleSelectorLabel)}⌄</button>
           <button class="menu-button" id="menu-button" type="button" aria-label="فتح القائمة">☰</button>
           <div>
-            <p class="system-label">${state.guestMode ? 'رصد استخباري في الوقت الحقيقي للأحداث والمخاطر العالمية' : 'M3TM.RASEED'}</p>
-            <h1 id="page-title">${state.guestMode ? 'لوحة الرصد الاستخباري' : 'لوحة الرصد'}</h1>
+            <p class="system-label">رصد استخباري في الوقت الحقيقي للأحداث والمخاطر العالمية</p>
+            <h1 id="page-title">لوحة الرصد الاستخباري</h1>
           </div>
           <div class="topbar-actions">
             <label class="topbar-search">
@@ -421,7 +423,7 @@ function renderShell(): void {
             <button class="button secondary compact" id="export-button" type="button">تصدير JSON</button>
           </div>
         </header>
-        <span class="build-marker">M3TM_UI_VERSION=command-center-v3</span>
+        <span class="build-marker">M3TM_UI_VERSION=lovable-design-lock</span>
         <div id="global-message" class="notice" hidden></div>
         <main id="view" tabindex="-1"></main>
       </div>
@@ -465,11 +467,7 @@ function make(tag: string, className = '', text = ''): HTMLElement {
 function renderDashboard(view: HTMLElement): void {
   const profile = state.session.profile;
   if (!profile) return;
-  if (state.guestMode) {
-    renderGuestDashboard(view);
-    return;
-  }
-  renderCommandCenter(view, intelligenceUiState(profile), setMessage);
+  renderGuestDashboard(view);
 }
 
 function renderGuestDashboard(view: HTMLElement): void {
@@ -974,7 +972,7 @@ function renderCurrentView(): void {
     import: 'الاستيراد',
     settings: 'الإعدادات',
   };
-  title.textContent = state.guestMode && state.route === 'dashboard' ? 'لوحة الرصد الاستخباري' : titles[state.route];
+  title.textContent = state.route === 'dashboard' ? 'لوحة الرصد الاستخباري' : titles[state.route];
   if (state.error) {
     setMessage(state.error, 'error');
     state.error = '';
