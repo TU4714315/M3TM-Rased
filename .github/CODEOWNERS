@@ -1,0 +1,13 @@
+# M3TM production path ownership
+# Changes that affect runtime, deployment, and workflow health require owner review.
+
+* @TU4714315
+
+.github/workflows/* @TU4714315
+firebase.json @TU4714315
+firestore.rules @TU4714315
+firestore.indexes.json @TU4714315
+package.json @TU4714315
+package-lock.json @TU4714315
+server/* @TU4714315
+scripts/* @TU4714315
